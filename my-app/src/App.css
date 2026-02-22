@@ -1,0 +1,72 @@
+/* Color Variables */
+:root {
+	--harvest-gold: #DB9406;
+	--dark-garnet: #660E00;
+	--yale-blue: #064460;
+}
+
+/* Decorative layer to blend with MUI components */
+.student-bg {
+	/* Lighter versions or mixed gradients */
+	background: radial-gradient(circle at 20% 20%, #e0f2fe 0%, #f8fafc 32%),
+		radial-gradient(circle at 80% 0%, #fff8e1 0%, #f8fafc 26%),
+		linear-gradient(180deg, #f0f9ff 0%, #fefce8 100%);
+}
+
+.glass-shell {
+	box-shadow: 0 24px 60px rgba(6, 68, 96, 0.15);
+	/* Tinted with Yale Blue */
+	border: 1px solid rgba(255, 255, 255, 0.6);
+}
+
+.glass-card {
+	background: rgba(255, 255, 255, 0.95);
+	border: 1px solid rgba(226, 232, 240, 0.9);
+	box-shadow: 0 12px 30px rgba(6, 68, 96, 0.08);
+	transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.card-hover:hover {
+	transform: translateY(-3px);
+	box-shadow: 0 16px 40px rgba(6, 68, 96, 0.15);
+}
+
+.primary-button {
+	/* Gradient from Yale Blue to Dark Garnet or just Yale Blue variations */
+	background: linear-gradient(90deg, #064460, #095a80) !important;
+	color: #ffffff !important;
+	box-shadow: 0 14px 30px rgba(6, 68, 96, 0.3);
+	transition: transform 150ms ease, box-shadow 150ms ease;
+}
+
+.primary-button:hover {
+	transform: translateY(-1px);
+	box-shadow: 0 16px 38px rgba(6, 68, 96, 0.4);
+	background: linear-gradient(90deg, #095a80, #F9C824) !important;
+	/* Reveal Gold on hover? Or just lighter blue */
+}
+
+/* Let's try to incorporate the Harvest Gold and Garnet more explicitly if the user wants "This Tone" */
+/* Maybe a class for "Gold Button" or "Garnet Button" if needed, but primary is usually safe as Blue */
+
+.secondary-button {
+	background: linear-gradient(90deg, #f1f5f9, #e2e8f0) !important;
+	color: #064460 !important;
+	/* Text color Yale Blue */
+	box-shadow: 0 10px 24px rgba(6, 68, 96, 0.1);
+}
+
+.secondary-button.Mui-disabled {
+	opacity: 0.7;
+}
+
+.bottom-panel {
+	backdrop-filter: blur(12px);
+	background: rgba(255, 255, 255, 0.92);
+	border-top: 1px solid rgba(226, 232, 240, 0.9);
+	box-shadow: 0 -10px 30px rgba(6, 68, 96, 0.08);
+}
+
+.modal-panel {
+	background: linear-gradient(145deg, #ffffff 0%, #f0f9ff 100%);
+}
