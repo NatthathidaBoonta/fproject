@@ -1,22 +1,17 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Box,
-  Button,
   Chip,
   Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
   TableRow,
-  Paper,
   Typography,
-  Container,
   TextField,
   InputAdornment,
   Grid,
   IconButton,
-  Avatar,
   Select,
   MenuItem,
   FormControl,
@@ -25,104 +20,25 @@ import {
   AccordionSummary,
   AccordionDetails,
   Card,
-  CardContent
+  CardContent,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import { alpha } from '@mui/material/styles';
 import SearchIcon from '@mui/icons-material/Search';
-import FilterListIcon from '@mui/icons-material/FilterList';
 import VisibilityIcon from '@mui/icons-material/Visibility';
-import PersonIcon from '@mui/icons-material/Person';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import PendingIcon from '@mui/icons-material/Pending';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import GroupIcon from '@mui/icons-material/Group';
 import PendingActionsIcon from '@mui/icons-material/PendingActions';
 import CancelIcon from '@mui/icons-material/Cancel';
+import { getRequests } from "../../services/api";
 
-// Mock Data
-const initialStudents = [
-  {
-    id: 1,
-    studentId: "6610014114",
-    name: "ณัฏฐธิดา บุญทา",
-    section: "66/45",
-    academicYear: "2569",
-    date: "09.08.25",
-    status: "waiting",
-    type: "ปกติ",
-    studyStatus: "กำลังศึกษา",
-    items: [
-      { name: "โครงสร้างหลักสูตร", status: "passed" },
-      { name: "ห้องสมุด", status: "waiting" },
-      { name: "กิจกรรม", status: "waiting" },
-      { name: "สอบดิจิทัล", status: "waiting" },
-      { name: "สอบอังกฤษ", status: "passed" },
-      { name: "เอกสารที่อัปโหลด", status: "passed" },
-      { name: "ชำระค่าออกฝึก", status: "waiting" },
-    ],
-  },
-  {
-    id: 2,
-    studentId: "6610014115",
-    name: "สุพรรณษา กะวันตุ",
-    section: "66/45",
-    academicYear: "2569",
-    date: "09.08.25",
-    status: "waiting",
-    type: "ปกติ",
-    studyStatus: "กำลังศึกษา",
-    items: [
-      { name: "โครงสร้างหลักสูตร", status: "passed" },
-      { name: "ห้องสมุด", status: "passed" },
-      { name: "กิจกรรม", status: "waiting" },
-      { name: "สอบดิจิทัล", status: "passed" },
-      { name: "สอบอังกฤษ", status: "waiting" },
-      { name: "เอกสารที่อัปโหลด", status: "passed" },
-      { name: "ชำระค่าออกฝึก", status: "waiting" },
-    ],
-  },
-  {
-    id: 3,
-    studentId: "6610014116",
-    name: "สมชาย รักเรียน",
-    section: "66/46",
-    academicYear: "2569",
-    date: "10.08.25",
-    status: "passed",
-    type: "ปกติ",
-    studyStatus: "สำเร็จการศึกษา",
-    items: [
-      { name: "โครงสร้างหลักสูตร", status: "passed" },
-      { name: "ห้องสมุด", status: "passed" },
-      { name: "กิจกรรม", status: "passed" },
-      { name: "สอบดิจิทัล", status: "passed" },
-      { name: "สอบอังกฤษ", status: "passed" },
-      { name: "เอกสารที่อัปโหลด", status: "passed" },
-      { name: "ชำระค่าออกฝึก", status: "passed" },
-    ],
-  },
-  {
-    id: 4,
-    studentId: "6510014001",
-    name: "มานี มีตา",
-    section: "65/40",
-    academicYear: "2568",
-    date: "12.08.25",
-    status: "rejected",
-    type: "ปกติ",
-    studyStatus: "พ้นสภาพ",
-    items: [
-      { name: "โครงสร้างหลักสูตร", status: "rejected" },
-      { name: "ห้องสมุด", status: "passed" },
-      { name: "กิจกรรม", status: "waiting" },
-      { name: "สอบดิจิทัล", status: "waiting" },
-      { name: "สอบอังกฤษ", status: "waiting" },
-      { name: "เอกสารที่อัปโหลด", status: "rejected" },
-      { name: "ชำระค่าออกฝึก", status: "waiting" },
-    ],
-  },
-];
+const mapOverallStatusToUi = (status) => {
+  const normalized = String(status || '').toLowerCase();
+  if (normalized === 'completed') return 'passed';
+  if (normalized === 'rejected') return 'rejected';
+  return 'waiting';
+};
 
 const statusConfig = {
   waiting: { label: "รอดำเนินการ", bg: "#FFFBEB", color: "#B45309" }, // Amber
@@ -130,7 +46,7 @@ const statusConfig = {
   rejected: { label: "ไม่ผ่าน", bg: "#FEF2F2", color: "#B91C1C" }, // Red
 };
 
-// Reusable StatCard Component (Matches OfficeDashboard)
+// Reusable StatCard Component
 const StatCard = ({ icon, title, count, color }) => (
   <Card sx={{
     height: '100%',
@@ -179,11 +95,39 @@ const StatCard = ({ icon, title, count, color }) => (
 );
 
 export default function AdvisorDashboard() {
-  const [students, setStudents] = useState(initialStudents);
+  const [students, setStudents] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [yearFilter, setYearFilter] = useState("all");
   const navigate = useNavigate();
+
+  const fetchAdvisorData = async () => {
+    try {
+      const data = await getRequests();
+      // Map backend model to component state structure
+      const mapped = data.map(r => ({
+        id: r.id,
+        studentId: r.studentId,
+        name: r.User?.name || "ไม่ทราบชื่อ",
+        faculty: r.User?.faculty || "ไม่ทราบคณะ",
+        branch: r.User?.branch || "ไม่ทราบสาขา",
+        academicYear: r.academicYear,
+        status: mapOverallStatusToUi(r.status),
+        date: new Date(r.createdAt).toLocaleDateString('th-TH'),
+        items: []
+      }));
+      setStudents(mapped);
+    } catch (error) {
+      console.error("Failed to fetch advisor data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAdvisorData();
+  }, []);
 
   // Use Admin Color Palette
   const THEME_COLOR = "#F9C824";
@@ -245,7 +189,7 @@ export default function AdvisorDashboard() {
 
             {/* Stats Grid */}
             <Grid container spacing={3} sx={{ justifyContent: 'center' }}>
-              <Grid item xs={12} sm={6} md={3}>
+              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                 <StatCard
                   icon={<GroupIcon fontSize="large" />}
                   title="นักศึกษาทั้งหมด"
@@ -253,7 +197,7 @@ export default function AdvisorDashboard() {
                   color="#3b82f6" // Blue
                 />
               </Grid>
-              <Grid item xs={12} sm={6} md={3}>
+              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                 <StatCard
                   icon={<PendingActionsIcon fontSize="large" />}
                   title="รอตรวจสอบ"
@@ -261,7 +205,7 @@ export default function AdvisorDashboard() {
                   color="#f59e0b" // Amber
                 />
               </Grid>
-              <Grid item xs={12} sm={6} md={3}>
+              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                 <StatCard
                   icon={<CheckCircleIcon fontSize="large" />}
                   title="อนุมัติแล้ว"
@@ -269,7 +213,7 @@ export default function AdvisorDashboard() {
                   color="#10b981" // Emerald
                 />
               </Grid>
-              <Grid item xs={12} sm={6} md={3}>
+              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                 <StatCard
                   icon={<CancelIcon fontSize="large" />}
                   title="ไม่ผ่าน"
@@ -375,10 +319,10 @@ export default function AdvisorDashboard() {
                     <Table>
                       <TableHead sx={{ bgcolor: 'white' }}>
                         <TableRow>
-                          <TableCell width="25%" sx={{ fontWeight: 'bold', color: '#475569', pl: 3 }}>รหัสนักศึกษา</TableCell>
+                          <TableCell width="30%" sx={{ fontWeight: 'bold', color: '#475569', pl: 3 }}>รหัสนักศึกษา</TableCell>
                           <TableCell width="35%" sx={{ fontWeight: 'bold', color: '#475569' }}>ชื่อ-นามสกุล</TableCell>
                           <TableCell width="20%" sx={{ fontWeight: 'bold', color: '#475569' }}>สถานะ</TableCell>
-                          <TableCell width="20%" sx={{ fontWeight: 'bold', color: '#475569', textAlign: 'center', pr: 3 }}>จัดการ</TableCell>
+                          <TableCell width="15%" sx={{ fontWeight: 'bold', color: '#475569', textAlign: 'center', pr: 3 }}>จัดการ</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
@@ -397,12 +341,7 @@ export default function AdvisorDashboard() {
                           >
                             <TableCell sx={{ pl: 3, color: '#334155' }}>{student.studentId}</TableCell>
                             <TableCell>
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                <Avatar sx={{ width: 32, height: 32, bgcolor: '#e2e8f0', color: '#475569', fontSize: 14 }}>
-                                  {student.name.charAt(0)}
-                                </Avatar>
-                                <Typography sx={{ color: '#0f172a', fontWeight: 500 }}>{student.name}</Typography>
-                              </Box>
+                              <Typography sx={{ color: '#0f172a', fontWeight: 500 }}>{student.name}</Typography>
                             </TableCell>
                             <TableCell>
                               <Chip

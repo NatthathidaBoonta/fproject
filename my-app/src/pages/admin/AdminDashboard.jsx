@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { facultyList, facultyBranches, officeDepts } from '../../data/masterData';
 import {
   Box, Paper, Typography, Grid,
   Card,
@@ -36,15 +37,19 @@ import SchoolIcon from '@mui/icons-material/School';
 import SearchIcon from '@mui/icons-material/Search';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import { deleteUser, updateUser } from '../../services/api';
 
-export default function AdminDashboard({ users, setUsers }) {
+export default function AdminDashboard({ users, setUsers, onRefresh }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const [search, setSearch] = useState('');
-  const [editUser, setEditUser] = useState(null);
   const [tabValue, setTabValue] = useState(0);
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
+  const [editUser, setEditUser] = useState(null);
+  const [successDialogOpen, setSuccessDialogOpen] = useState(Boolean(location.state?.successMessage));
+  const [successDialogMessage, setSuccessDialogMessage] = useState(location.state?.successMessage || '');
 
   // --- Stats Calculation ---
   const stats = useMemo(() => ({
@@ -56,10 +61,8 @@ export default function AdminDashboard({ users, setUsers }) {
 
   // --- Filter Logic ---
   const filtered = useMemo(() => {
-    // ... existing logic ...
     const s = search.trim().toLowerCase();
     return users.filter(u => {
-      // Allow searching across multiple fields
       const matchesSearch = !s || [
         u.name,
         u.email,
@@ -79,26 +82,42 @@ export default function AdminDashboard({ users, setUsers }) {
     setDeleteDialogOpen(true);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (userToDelete) {
-      setUsers(prev => prev.filter(u => u.id !== userToDelete.id));
-      setDeleteDialogOpen(false);
-      setUserToDelete(null);
+      try {
+        await deleteUser(userToDelete.id);
+        if (onRefresh) onRefresh();
+        setDeleteDialogOpen(false);
+        setUserToDelete(null);
+      } catch (error) {
+        alert("ลบไม่สำเร็จ: " + error.message);
+      }
     }
   };
 
-  const handleEditSave = () => {
-    if (!editUser) return;
-    setUsers(prev => prev.map(u => (u.id === editUser.id ? { ...u, ...editUser } : u)));
-    setEditUser(null);
+  const handleEditSave = async () => {
+    try {
+      await updateUser(editUser.id, editUser);
+      setEditUser(null);
+      if (onRefresh) onRefresh();
+    } catch (error) {
+      alert("แก้ไขไม่สำเร็จ: " + error.message);
+    }
   };
 
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
   };
 
-  const officeDepts = ['ฝ่ายทะเบียน', 'ฝ่ายวิทยบริการและเทคโนโลยี', 'ฝ่ายศูนย์ภาษา', 'ฝ่ายกิจกรรม'];
-  const facultyList = ['คณะวิทยาศาสตร์และศิลปศาสตร์', 'คณะครุศาสตร์'];
+  React.useEffect(() => {
+    if (location.state?.successMessage) {
+      setSuccessDialogMessage(location.state.successMessage);
+      setSuccessDialogOpen(true);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, location.pathname, navigate]);
+
+
 
   // --- Grouping Logic for Hierarchy ---
   const getHierarchicalUsers = (role) => {
@@ -213,7 +232,7 @@ export default function AdminDashboard({ users, setUsers }) {
       }}
       secondaryAction={
         <Stack direction="row" spacing={1}>
-          <IconButton size="small" onClick={() => navigate('/adminfrom', { state: { userToEdit: user } })} sx={{ color: '#64748b', '&:hover': { color: '#0ea5e9', bgcolor: alpha('#0ea5e9', 0.1) } }}>
+          <IconButton size="small" onClick={() => setEditUser(user)} sx={{ color: '#64748b', '&:hover': { color: '#0ea5e9', bgcolor: alpha('#0ea5e9', 0.1) } }}>
             <EditIcon fontSize="small" />
           </IconButton>
           <IconButton size="small" onClick={() => handleDelete(user)} sx={{ color: '#64748b', '&:hover': { color: '#ef4444', bgcolor: alpha('#ef4444', 0.1) } }}>
@@ -230,9 +249,11 @@ export default function AdminDashboard({ users, setUsers }) {
         secondary={
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap', mt: 0.5 }}>
             <Chip label={user.email} size="small" variant="outlined" sx={{ borderRadius: 1, height: 20, fontSize: '0.75rem' }} />
+            {user.role === 'Office' && user.deptName && <Chip label={user.deptName} size="small" sx={{ borderRadius: 1, height: 20, fontSize: '0.75rem', bgcolor: alpha('#2ECC71', 0.05), color: '#2ECC71', border: '1px solid', borderColor: alpha('#2ECC71', 0.2) }} />}
             {user.role === 'Student' && user.id && <Typography variant="caption" color="text.secondary">ID: {user.id}</Typography>}
           </Box>
         }
+        secondaryTypographyProps={{ component: 'div' }}
       />
     </ListItem>
   );
@@ -312,37 +333,39 @@ export default function AdminDashboard({ users, setUsers }) {
               <AccordionDetails sx={{ p: 2, bgcolor: 'white' }}>
                 {branchKeys.length > 0 ? (
                   sortKeys(branchKeys, []).map(branch => (
-                    <Accordion key={branch} disableGutters elevation={0} sx={{
-                      mb: 1,
-                      borderRadius: '12px !important',
-                      border: '1px solid #f1f5f9',
-                      '&:before': { display: 'none' }
-                    }}>
-                      <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ bgcolor: alpha(color, 0.05), minHeight: 48 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                          <Typography variant="body2" fontWeight="600" color="text.secondary">{branch}</Typography>
-                          <Chip
-                            label={branches[branch].length}
-                            size="small"
-                            sx={{
-                              bgcolor: alpha(color, 0.1),
-                              color: color,
-                              fontWeight: 'bold',
-                              height: 20,
-                              fontSize: '0.7rem'
-                            }}
-                          />
-                        </Box>
-                      </AccordionSummary>
-                      <AccordionDetails sx={{ p: 1 }}>
-                        <List disablePadding>
-                          {branches[branch].map(u => <UserListItem key={u.id} user={u} />)}
-                        </List>
-                      </AccordionDetails>
-                    </Accordion>
+                    <Box key={branch} sx={{ mb: 3, '&:last-child': { mb: 0 } }}>
+                      <Box sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1,
+                        mb: 1,
+                        pb: 0.5,
+                        borderBottom: '1px solid',
+                        borderColor: alpha(color, 0.1)
+                      }}>
+                        <Typography variant="caption" fontWeight="800" sx={{ color: color, textTransform: 'uppercase', letterSpacing: 1 }}>
+                          สาขา{branch}
+                        </Typography>
+                        <Chip
+                          label={branches[branch].length}
+                          size="small"
+                          sx={{
+                            height: 18,
+                            fontSize: '0.65rem',
+                            bgcolor: alpha(color, 0.05),
+                            color: color,
+                            fontWeight: 'bold',
+                            borderRadius: 1
+                          }}
+                        />
+                      </Box>
+                      <List disablePadding>
+                        {branches[branch].map(u => <UserListItem key={u.id} user={u} />)}
+                      </List>
+                    </Box>
                   ))
                 ) : (
-                  <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>ยังไม่มีข้อมูลสาขาในคณะนี้</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>ยังไม่มีข้อมูลในคณะนี้</Typography>
                 )}
               </AccordionDetails>
             </Accordion>
@@ -396,23 +419,23 @@ export default function AdminDashboard({ users, setUsers }) {
 
       {/* Stats Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }} justifyContent="center">
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <StatCard icon={<GroupIcon />} title="ผู้ใช้ทั้งหมด" count={stats.total} color="#064460" delay={0.1} />
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <StatCard icon={<DomainIcon />} title="สำนักงาน" count={stats.office} color="#2ECC71" delay={0.2} />
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <StatCard icon={<AssignmentIndIcon />} title="ที่ปรึกษา" count={stats.advisor} color="#F9C824" delay={0.3} />
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <StatCard icon={<SchoolIcon />} title="นักศึกษา" count={stats.student} color="#E74C3C" delay={0.4} />
         </Grid>
       </Grid>
 
       {/* Main Content Area */}
       <Grid container spacing={3} justifyContent="center">
-        <Grid item xs={12}>
+        <Grid size={{ xs: 12 }}>
           <Paper elevation={0} sx={{
             borderRadius: 4,
             bgcolor: 'white',
@@ -422,7 +445,7 @@ export default function AdminDashboard({ users, setUsers }) {
           }}>
             <Box sx={{ p: 3, borderBottom: '1px solid #f1f5f9' }}>
               <Grid container spacing={2} alignItems="center">
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <Tabs
                     value={tabValue}
                     onChange={handleTabChange}
@@ -450,7 +473,7 @@ export default function AdminDashboard({ users, setUsers }) {
                     <Tab icon={<SchoolIcon fontSize="small" />} iconPosition="start" label="นักศึกษา" />
                   </Tabs>
                 </Grid>
-                <Grid item xs={12} md={6} sx={{ display: 'flex', justifyContent: { xs: 'flex-start', md: 'flex-end' } }}>
+                <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex', justifyContent: { xs: 'flex-start', md: 'flex-end' } }}>
                   <TextField
                     placeholder="พิมพ์เพื่อค้นหา..."
                     size="small"
@@ -559,13 +582,20 @@ export default function AdminDashboard({ users, setUsers }) {
                     <MenuItem value="อื่นๆ">อื่นๆ</MenuItem>
                   </TextField>
                   <TextField
+                    select
                     label="สาขา"
                     fullWidth
                     value={editUser.branch || ''}
                     onChange={e => setEditUser({ ...editUser, branch: e.target.value })}
                     variant="outlined"
                     InputProps={{ sx: { borderRadius: 2 } }}
-                  />
+                    disabled={!editUser.faculty || editUser.faculty === 'อื่นๆ'}
+                  >
+                    {(facultyBranches[editUser.faculty] || []).map(branch => (
+                      <MenuItem key={branch} value={branch}>{branch}</MenuItem>
+                    ))}
+                    <MenuItem value="อื่นๆ">อื่นๆ</MenuItem>
+                  </TextField>
                 </>
               )}
               {editUser.role === 'Student' && (
@@ -596,6 +626,18 @@ export default function AdminDashboard({ users, setUsers }) {
             }}
           >
             บันทึกการแก้ไข
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={successDialogOpen} onClose={() => setSuccessDialogOpen(false)} fullWidth maxWidth="xs">
+        <DialogTitle>บันทึกข้อมูลสำเร็จ</DialogTitle>
+        <DialogContent>
+          <Typography>{successDialogMessage}</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSuccessDialogOpen(false)} variant="contained" sx={{ bgcolor: '#F9C824', '&:hover': { bgcolor: '#F9C824' } }}>
+            ตกลง
           </Button>
         </DialogActions>
       </Dialog>

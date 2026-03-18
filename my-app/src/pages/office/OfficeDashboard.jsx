@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Box,
   Button,
@@ -43,198 +43,14 @@ import PendingActionsIcon from '@mui/icons-material/PendingActions';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import GroupIcon from '@mui/icons-material/Group';
+import { getRequests } from "../../services/api";
 
-// Mock Data
-// Mock Data
-const initialStudents = [
-  // คณะศิลปศาสตร์และวิทยาศาสตร์
-  {
-    id: 1,
-    studentId: "6610014114",
-    name: "ณัฏฐธิดา บุญทา",
-    faculty: "คณะศิลปศาสตร์และวิทยาศาสตร์",
-    branch: "วิทยาการคอมพิวเตอร์",
-    section: "66/45",
-    academicYear: "2569",
-    date: "09.08.25",
-    status: "waiting",
-  },
-  {
-    id: 2,
-    studentId: "6610014115",
-    name: "สุพรรณษา กะวันตุ",
-    faculty: "คณะศิลปศาสตร์และวิทยาศาสตร์",
-    branch: "วิทยาการคอมพิวเตอร์",
-    section: "66/45",
-    academicYear: "2569",
-    date: "09.08.25",
-    status: "waiting",
-  },
-  {
-    id: 3,
-    studentId: "6610014201",
-    name: "สมชาย รักเรียน",
-    faculty: "คณะศิลปศาสตร์และวิทยาศาสตร์",
-    branch: "เทคโนโลยีสารสนเทศ",
-    section: "66/46",
-    academicYear: "2568",
-    date: "10.08.25",
-    status: "passed",
-  },
-  {
-    id: 4,
-    studentId: "6610014305",
-    name: "วิชัย ใจดี",
-    faculty: "คณะศิลปศาสตร์และวิทยาศาสตร์",
-    branch: "วิศวกรรมซอฟต์แวร์",
-    section: "66/47",
-    academicYear: "2569",
-    date: "11.08.25",
-    status: "waiting",
-  },
-
-  // คณะครุศาสตร์
-  {
-    id: 5,
-    studentId: "6510014001",
-    name: "มานี มีตา",
-    faculty: "คณะครุศาสตร์",
-    branch: "คณิตศาสตร์",
-    section: "65/40",
-    academicYear: "2568",
-    date: "12.08.25",
-    status: "rejected",
-  },
-  {
-    id: 6,
-    studentId: "6510014022",
-    name: "ปิติ พอใจ",
-    faculty: "คณะครุศาสตร์",
-    branch: "การศึกษาปฐมวัย",
-    section: "65/41",
-    academicYear: "2568",
-    date: "12.08.25",
-    status: "passed",
-  },
-  {
-    id: 7,
-    studentId: "6510014033",
-    name: "ชูใจ รักสงบ",
-    faculty: "คณะครุศาสตร์",
-    branch: "พลศึกษา",
-    section: "65/42",
-    academicYear: "2569",
-    date: "13.08.25",
-    status: "waiting",
-  },
-
-  // คณะมนุษยศาสตร์และสังคมศาสตร์
-  {
-    id: 8,
-    studentId: "6610025001",
-    name: "สุดา งามตา",
-    faculty: "คณะมนุษยศาสตร์และสังคมศาสตร์",
-    branch: "ภาษาอังกฤษธุรกิจ",
-    section: "66/50",
-    academicYear: "2569",
-    date: "14.08.25",
-    status: "waiting",
-  },
-  {
-    id: 9,
-    studentId: "6610025012",
-    name: "Kenji Sato",
-    faculty: "คณะมนุษยศาสตร์และสังคมศาสตร์",
-    branch: "ภาษาญี่ปุ่น",
-    section: "66/51",
-    academicYear: "2569",
-    date: "14.08.25",
-    status: "passed",
-  },
-  {
-    id: 10,
-    studentId: "6610025045",
-    name: "Wei Chen",
-    faculty: "คณะมนุษยศาสตร์และสังคมศาสตร์",
-    branch: "ภาษาจีน",
-    section: "66/52",
-    academicYear: "2568",
-    date: "15.08.25",
-    status: "waiting",
-  },
-
-  // คณะบริหาธุรกิจและการบัญชี
-  {
-    id: 11,
-    studentId: "6610036001",
-    name: "สมหญิง จริงใจ",
-    faculty: "คณะบริหารธุรกิจและการบัญชี",
-    branch: "การบัญชี",
-    section: "66/60",
-    academicYear: "2569",
-    date: "16.08.25",
-    status: "passed",
-  },
-  {
-    id: 12,
-    studentId: "6610036022",
-    name: "อาทิตย์ สดใส",
-    faculty: "คณะบริหารธุรกิจและการบัญชี",
-    branch: "การตลาด",
-    section: "66/61",
-    academicYear: "2569",
-    date: "16.08.25",
-    status: "waiting",
-  },
-  {
-    id: 13,
-    studentId: "6610036033",
-    name: "จันทร์เจ้า ขา",
-    faculty: "คณะบริหารธุรกิจและการบัญชี",
-    branch: "คอมพิวเตอร์ธุรกิจ",
-    section: "66/62",
-    academicYear: "2568",
-    date: "17.08.25",
-    status: "rejected",
-  },
-
-  // คณะพยาบาลศาสตร์
-  {
-    id: 14,
-    studentId: "6610047001",
-    name: "ฟ้าใส ใจดี",
-    faculty: "คณะพยาบาลศาสตร์",
-    branch: "พยาบาลศาสตร์",
-    section: "66/70",
-    academicYear: "2569",
-    date: "18.08.25",
-    status: "passed",
-  },
-
-  // วิทยาลัยกฎหมายและการปกครอง
-  {
-    id: 15,
-    studentId: "6610058001",
-    name: "ยุติ ธรรม",
-    faculty: "วิทยาลัยกฎหมายและการปกครอง",
-    branch: "นิติศาสตร์",
-    section: "66/80",
-    academicYear: "2569",
-    date: "19.08.25",
-    status: "waiting",
-  },
-  {
-    id: 16,
-    studentId: "6610058012",
-    name: "รัฐ ศาสตร์",
-    faculty: "วิทยาลัยกฎหมายและการปกครอง",
-    branch: "รัฐประศาสนศาสตร์",
-    section: "66/81",
-    academicYear: "2568",
-    date: "19.08.25",
-    status: "waiting",
-  },
-];
+const mapOverallStatusToUi = (status) => {
+  const normalized = String(status || '').toLowerCase();
+  if (normalized === 'completed') return 'passed';
+  if (normalized === 'rejected') return 'rejected';
+  return 'waiting';
+};
 
 const statusConfig = {
   waiting: { label: "รอดำเนินการ", bg: "#FFFBEB", color: "#B45309" }, // Amber
@@ -242,7 +58,7 @@ const statusConfig = {
   rejected: { label: "ไม่ผ่าน", bg: "#FEF2F2", color: "#B91C1C" }, // Red
 };
 
-// Reusable StatCard Component (Matches AdminDashboard)
+// Reusable StatCard Component
 const StatCard = ({ icon, title, count, color }) => (
   <Card sx={{
     height: '100%',
@@ -291,7 +107,8 @@ const StatCard = ({ icon, title, count, color }) => (
 );
 
 export default function OfficeDashboard() {
-  const [students, setStudents] = useState(initialStudents);
+  const [students, setStudents] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -300,20 +117,37 @@ export default function OfficeDashboard() {
 
   const navigate = useNavigate();
 
-  const handleRadioChange = (student, value) => {
-    if (value === "rejected") {
-      setSelectedStudent(student);
-      setTempComment(student.comment || "");
-      setDialogOpen(true);
-    } else {
-      updateStatus(student.id, value, "");
+  const fetchRequests = async () => {
+    try {
+      const data = await getRequests({ submittedOnly: true });
+      // Map backend model to component state structure
+      const mapped = data.map(r => ({
+        id: r.id,
+        studentId: r.studentId,
+        name: r.User?.name || "ไม่ทราบชื่อ",
+        faculty: r.User?.faculty || "ไม่ทราบคณะ",
+        branch: r.User?.branch || "ไม่ทราบสาขา",
+        academicYear: r.academicYear,
+        status: mapOverallStatusToUi(r.status),
+        date: new Date(r.createdAt).toLocaleDateString('th-TH'),
+        steps: r.steps
+      }));
+      setStudents(mapped);
+    } catch (error) {
+      console.error("Failed to fetch requests:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const updateStatus = (id, status, comment) => {
-    setStudents(prev => prev.map(s =>
-      s.id === id ? { ...s, status: status, comment: comment } : s
-    ));
+  useEffect(() => {
+    fetchRequests();
+  }, []);
+
+  const handleRadioChange = (student, value) => {
+    // This dashboard is an overview, detailed actions are in sub-pages
+    // but we can allow navigation or quick updates if needed.
+    navigate(`/office/${student.id}`);
   };
 
   const handleSave = () => {
@@ -386,7 +220,7 @@ export default function OfficeDashboard() {
               { title: "งานประชาสัมพันธ์", path: "/office/information", icon: <PendingActionsIcon />, color: "#f59e0b" },
               { title: "สำนักวิทยบริการ", path: "/office/library", icon: <DomainIcon />, color: "#64748b" },
             ].map((agency) => (
-              <Grid item xs={12} sm={6} md={2.4} key={agency.path}>
+              <Grid size={{ xs: 12, sm: 6, md: 2.4 }} key={agency.path}>
                 <Card
                   onClick={() => navigate(agency.path)}
                   sx={{
@@ -413,7 +247,7 @@ export default function OfficeDashboard() {
 
         {/* Stats Grid - Using reusable component */}
         <Grid container spacing={3} sx={{ mb: 4, justifyContent: 'center' }} >
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <StatCard
               icon={<GroupIcon fontSize="large" />}
               title="คำร้องทั้งหมด (ภาพรวม)"
@@ -421,7 +255,7 @@ export default function OfficeDashboard() {
               color="#3b82f6" // Blue
             />
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <StatCard
               icon={<PendingActionsIcon fontSize="large" />}
               title="รอตรวจสอบ"
@@ -429,7 +263,7 @@ export default function OfficeDashboard() {
               color="#f59e0b" // Amber
             />
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <StatCard
               icon={<CheckCircleIcon fontSize="large" />}
               title="อนุมัติแล้ว"
@@ -437,7 +271,7 @@ export default function OfficeDashboard() {
               color="#10b981" // Emerald
             />
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <StatCard
               icon={<CancelIcon fontSize="large" />}
               title="ไม่ผ่าน"

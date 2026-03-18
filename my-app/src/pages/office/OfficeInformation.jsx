@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
     Box,
     Button,
@@ -33,7 +33,6 @@ import {
     DialogActions,
 } from "@mui/material";
 import { alpha } from '@mui/material/styles';
-import { useNavigate } from "react-router-dom";
 import SearchIcon from '@mui/icons-material/Search';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import DomainIcon from '@mui/icons-material/Domain';
@@ -42,23 +41,29 @@ import PendingActionsIcon from '@mui/icons-material/PendingActions';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import PeopleIcon from '@mui/icons-material/People';
+import SchoolIcon from '@mui/icons-material/School';
+import ScienceIcon from '@mui/icons-material/Science';
+import BusinessIcon from '@mui/icons-material/Business';
+import GavelIcon from '@mui/icons-material/Gavel';
+import MedicalServicesIcon from '@mui/icons-material/MedicalServices';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import { getRequests, updateRequestStep } from "../../services/api";
 
-// Mock Data
-const initialStudents = [
-    {
-        id: 1,
-        studentId: "6610014114",
-        name: "ณัฏฐธิดา บุญทา",
-        faculty: "คณะบริหารธุรกิจและการบัญชี",
-        digitalStatus: "waiting",
-        digitalComment: ""
-    }
-];
+// Faculty Icon Config
+const facultyConfig = {
+    "คณะครุศาสตร์และการพัฒนุษย์": { icon: <SchoolIcon fontSize="large" />, color: "#0ea5e9" },
+    "คณะศิลปศาสตร์และวิทยาศาสตร์": { icon: <ScienceIcon fontSize="large" />, color: "#10b981" },
+    "คณะมนุษยศาสตร์และสังคมศาสตร์": { icon: <DomainIcon fontSize="large" />, color: "#8b5cf6" },
+    "คณะบริหารธุรกิจและการบัญชี": { icon: <BusinessIcon fontSize="large" />, color: "#f59e0b" },
+    "วิทยาลัยกฎหมายและการปกครอง": { icon: <GavelIcon fontSize="large" />, color: "#ef4444" },
+    "คณะพยาบาลศาสตร์": { icon: <MedicalServicesIcon fontSize="large" />, color: "#ec4899" },
+    "อื่นๆ": { icon: <DomainIcon fontSize="large" />, color: "#64748b" }
+};
 
 const statusConfig = {
-    waiting: { label: "รอดำเนินการ", bg: "#FFFBEB", color: "#B45309" },
-    passed: { label: "ผ่านเกณฑ์", bg: "#ECFDF5", color: "#15803D" },
-    rejected: { label: "ไม่ผ่านเกณฑ์", bg: "#FEF2F2", color: "#B91C1C" },
+    waiting: { label: "รอดำเนินการ", bg: "#fef3c7", color: "#d97706" },
+    passed: { label: "ผ่านเกณฑ์", bg: "#dcfce7", color: "#16a34a" },
+    rejected: { label: "ไม่ผ่านเกณฑ์", bg: "#fee2e2", color: "#dc2626" },
 };
 
 const StatCard = ({ icon, title, count, color }) => (
@@ -109,12 +114,68 @@ const StatCard = ({ icon, title, count, color }) => (
 );
 
 export default function OfficeInformation() {
-    const [students, setStudents] = useState(initialStudents);
+    const [students, setStudents] = useState([]);
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState("all");
     const [dialogOpen, setDialogOpen] = useState(false);
     const [selectedStudent, setSelectedStudent] = useState(null);
     const [tempComment, setTempComment] = useState("");
+    const [selectedFaculty, setSelectedFaculty] = useState(null);
+    const [loading, setLoading] = useState(true);
+
+    const currentUser = useMemo(() => {
+        try {
+            return JSON.parse(localStorage.getItem('user') || 'null');
+        } catch {
+            return null;
+        }
+    }, []);
+
+    const toUiStatus = (stepStatus) => {
+        if (stepStatus === 'approved') return 'passed';
+        if (stepStatus === 'rejected') return 'rejected';
+        return 'waiting';
+    };
+
+    const toStepStatus = (uiStatus) => {
+        if (uiStatus === 'passed') return 'approved';
+        if (uiStatus === 'rejected') return 'rejected';
+        return 'waiting';
+    };
+
+    const formatSubmittedDate = (value) => {
+        if (!value) return '-';
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return '-';
+        return date.toLocaleDateString('th-TH');
+    };
+
+    const mapRequestToStudent = (request) => ({
+        id: request.id,
+        studentId: request.studentId,
+        name: request.User?.name || 'ไม่ทราบชื่อ',
+        faculty: request.User?.faculty || 'อื่นๆ',
+        branch: request.User?.branch || 'สาขาทั่วไป',
+        digitalStatus: toUiStatus(request.steps?.digital_exam_check?.status),
+        digitalComment: request.steps?.digital_exam_check?.comment || '',
+        submittedAt: request.steps?.digital_exam_check?.updatedAt || null,
+    });
+
+    const fetchRequests = async () => {
+        setLoading(true);
+        try {
+            const data = await getRequests({ submittedOnly: true });
+            setStudents(data.map(mapRequestToStudent));
+        } catch (error) {
+            console.error('Failed to fetch digital exam requests:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchRequests();
+    }, []);
 
     const handleRadioChange = (student, value) => {
         if (value === "rejected") {
@@ -126,15 +187,23 @@ export default function OfficeInformation() {
         }
     };
 
-    const updateStatus = (id, status, comment) => {
-        setStudents(prev => prev.map(s =>
-            s.id === id ? { ...s, digitalStatus: status, digitalComment: comment } : s
-        ));
+    const updateStatus = async (id, status, comment) => {
+        try {
+            await updateRequestStep(id, {
+                step: 'digital_exam_check',
+                status: toStepStatus(status),
+                comment,
+                userId: currentUser?.id,
+            });
+            await fetchRequests();
+        } catch (error) {
+            console.error('Failed to update digital exam step:', error);
+        }
     };
 
-    const handleSave = () => {
+    const handleSave = async () => {
         if (!tempComment.trim()) return;
-        updateStatus(selectedStudent.id, "rejected", tempComment);
+        await updateStatus(selectedStudent.id, "rejected", tempComment);
         setDialogOpen(false);
     };
 
@@ -165,9 +234,14 @@ export default function OfficeInformation() {
         <Box sx={{ minHeight: '100vh', bgcolor: '#f8fafc', p: 3 }}>
             <Box sx={{ maxWidth: 1400, mx: 'auto' }}>
                 <Typography variant="h4" fontWeight="800" mb={4}>งานเทคโนโลยีสารสนเทศ (สอบดิจิทัล)</Typography>
+                {loading && (
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                        กำลังโหลดข้อมูลคำร้อง...
+                    </Typography>
+                )}
 
                 <Grid container spacing={3} sx={{ mb: 4 }}>
-                    <Grid item xs={12} sm={6} md={3}>
+                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                         <StatCard
                             icon={<PeopleIcon fontSize="large" />}
                             title="นักศึกษาทั้งหมด"
@@ -175,7 +249,7 @@ export default function OfficeInformation() {
                             color="#3b82f6"
                         />
                     </Grid>
-                    <Grid item xs={12} sm={6} md={3}>
+                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                         <StatCard
                             icon={<PendingActionsIcon fontSize="large" />}
                             title="รอดำเนินการ"
@@ -183,7 +257,7 @@ export default function OfficeInformation() {
                             color="#f59e0b"
                         />
                     </Grid>
-                    <Grid item xs={12} sm={6} md={3}>
+                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                         <StatCard
                             icon={<CheckCircleIcon fontSize="large" />}
                             title="ผ่านเกณฑ์"
@@ -191,7 +265,7 @@ export default function OfficeInformation() {
                             color="#10b981"
                         />
                     </Grid>
-                    <Grid item xs={12} sm={6} md={3}>
+                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                         <StatCard
                             icon={<CancelIcon fontSize="large" />}
                             title="ไม่ผ่านเกณฑ์"
@@ -201,61 +275,122 @@ export default function OfficeInformation() {
                     </Grid>
                 </Grid>
 
-                {Object.keys(groupedData).map(fac => (
-                    <Accordion key={fac} sx={{ mb: 2, borderRadius: 2, overflow: 'hidden' }}>
-                        <AccordionSummary expandIcon={<ExpandMoreIcon sx={{ color: 'white' }} />} sx={{ background: THEME_GRADIENT, color: 'white' }}>
+                {!selectedFaculty ? (
+                    <Grid container spacing={3}>
+                        {Object.keys(groupedData).map(fac => (
+                            <Grid item xs={12} sm={6} md={4} key={fac}>
+                                <Card
+                                    onClick={() => setSelectedFaculty(fac)}
+                                    sx={{
+                                        cursor: 'pointer',
+                                        height: '100%',
+                                        borderRadius: 4,
+                                        transition: 'all 0.3s',
+                                        '&:hover': {
+                                            transform: 'translateY(-8px)',
+                                            boxShadow: `0 12px 30px ${alpha(facultyConfig[fac]?.color || '#64748b', 0.15)}`,
+                                            borderColor: facultyConfig[fac]?.color
+                                        },
+                                        border: '2px solid transparent',
+                                        bgcolor: 'white'
+                                    }}
+                                >
+                                    <CardContent sx={{ textAlign: 'center', p: 4 }}>
+                                        <Box sx={{
+                                            width: 80,
+                                            height: 80,
+                                            borderRadius: '50%',
+                                            bgcolor: alpha(facultyConfig[fac]?.color || '#64748b', 0.1),
+                                            color: facultyConfig[fac]?.color || '#64748b',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            mx: 'auto',
+                                            mb: 3
+                                        }}>
+                                            {facultyConfig[fac]?.icon || <DomainIcon fontSize="large" />}
+                                        </Box>
+                                        <Typography variant="h6" fontWeight="800" color="#1e293b" gutterBottom>
+                                            {fac}
+                                        </Typography>
+                                        <Typography variant="body2" color="text.secondary">
+                                            {Object.keys(groupedData[fac]).length} สาขาวิชา
+                                        </Typography>
+                                    </CardContent>
+                                </Card>
+                            </Grid>
+                        ))}
+                    </Grid>
+                ) : (
+                    <Box>
+                        <Button
+                            startIcon={<ArrowBackIcon />}
+                            onClick={() => setSelectedFaculty(null)}
+                            sx={{ mb: 3, fontWeight: 'bold' }}
+                        >
+                            กลับไปเลือกคณะ
+                        </Button>
+
+                        <Paper sx={{ p: 2, mb: 3, borderRadius: 3, bgcolor: alpha(facultyConfig[selectedFaculty]?.color || '#64748b', 0.05), borderLeft: `6px solid ${facultyConfig[selectedFaculty]?.color || '#64748b'}` }}>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                <DomainIcon />
-                                <Typography variant="h6" fontWeight="bold">{fac}</Typography>
+                                <Box sx={{ color: facultyConfig[selectedFaculty]?.color || '#64748b' }}>
+                                    {facultyConfig[selectedFaculty]?.icon}
+                                </Box>
+                                <Typography variant="h5" fontWeight="800">{selectedFaculty}</Typography>
                             </Box>
-                        </AccordionSummary>
-                        <AccordionDetails sx={{ p: 2, bgcolor: '#f8fafc' }}>
-                            {Object.keys(groupedData[fac]).map(branch => (
-                                <Accordion key={branch} elevation={0} sx={{ border: '1px solid #e2e8f0', borderRadius: '12px !important', overflow: 'hidden', mb: 2 }}>
-                                    <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                                        <Typography variant="subtitle1" fontWeight="bold" color="#334155">{branch}</Typography>
-                                    </AccordionSummary>
-                                    <AccordionDetails sx={{ p: 0, bgcolor: 'white' }}>
-                                        <TableContainer>
-                                            <Table>
-                                                <TableHead sx={{ bgcolor: '#f1f5f9' }}>
-                                                    <TableRow>
-                                                        <TableCell sx={{ fontWeight: 'bold' }}>รหัสนักศึกษา</TableCell>
-                                                        <TableCell sx={{ fontWeight: 'bold' }}>ชื่อ-นามสกุล</TableCell>
-                                                        <TableCell align="center" sx={{ fontWeight: 'bold' }}>สถานะ</TableCell>
-                                                        <TableCell align="center" sx={{ fontWeight: 'bold' }}>ผ่าน &nbsp;&nbsp; ไม่ผ่าน</TableCell>
+                        </Paper>
+
+                        {Object.keys(groupedData[selectedFaculty]).sort().map(branch => (
+                            <Accordion key={branch} elevation={0} sx={{ border: '1px solid #e2e8f0', borderRadius: '12px !important', overflow: 'hidden', mb: 2 }}>
+                                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                                    <Typography variant="subtitle1" fontWeight="bold" color="#334155">{branch}</Typography>
+                                </AccordionSummary>
+                                <AccordionDetails sx={{ p: 0, bgcolor: 'white' }}>
+                                    <TableContainer>
+                                        <Table>
+                                            <TableHead sx={{ bgcolor: '#f1f5f9' }}>
+                                                <TableRow>
+                                                    <TableCell sx={{ fontWeight: 'bold' }}>รหัสนักศึกษา</TableCell>
+                                                    <TableCell sx={{ fontWeight: 'bold' }}>ชื่อ-นามสกุล</TableCell>
+                                                    <TableCell align="center" sx={{ fontWeight: 'bold' }}>สถานะ</TableCell>
+                                                    <TableCell align="center" sx={{ fontWeight: 'bold' }}>วันที่ยื่น</TableCell>
+                                                    <TableCell align="center" sx={{ fontWeight: 'bold' }}>ผ่าน &nbsp;&nbsp; ไม่ผ่าน</TableCell>
+                                                </TableRow>
+                                            </TableHead>
+                                            <TableBody>
+                                                {groupedData[selectedFaculty][branch].map(s => (
+                                                    <TableRow key={s.id}>
+                                                        <TableCell>{s.studentId}</TableCell>
+                                                        <TableCell>{s.name}</TableCell>
+                                                        <TableCell align="center">
+                                                            <Chip label={statusConfig[s.digitalStatus].label} sx={{ bgcolor: statusConfig[s.digitalStatus].bg, color: statusConfig[s.digitalStatus].color, fontWeight: 700, borderRadius: 1, fontSize: '0.75rem' }} />
+                                                        </TableCell>
+                                                        <TableCell align="center">
+                                                            <Typography variant="body2" color="text.secondary">
+                                                                {formatSubmittedDate(s.submittedAt)}
+                                                            </Typography>
+                                                        </TableCell>
+                                                        <TableCell align="center">
+                                                            <RadioGroup
+                                                                row
+                                                                value={s.digitalStatus}
+                                                                onChange={(e) => handleRadioChange(s, e.target.value)}
+                                                                sx={{ justifyContent: 'center', gap: 4 }}
+                                                            >
+                                                                <Radio value="passed" size="small" sx={{ p: 0.5, '&.Mui-checked': { color: '#10b981' } }} />
+                                                                <Radio value="rejected" size="small" sx={{ p: 0.5, '&.Mui-checked': { color: '#ef4444' } }} />
+                                                            </RadioGroup>
+                                                        </TableCell>
                                                     </TableRow>
-                                                </TableHead>
-                                                <TableBody>
-                                                    {groupedData[fac][branch].map(s => (
-                                                        <TableRow key={s.id}>
-                                                            <TableCell>{s.studentId}</TableCell>
-                                                            <TableCell>{s.name}</TableCell>
-                                                            <TableCell align="center">
-                                                                <Chip label={statusConfig[s.digitalStatus].label} sx={{ bgcolor: statusConfig[s.digitalStatus].bg, color: statusConfig[s.digitalStatus].color, fontWeight: 700, borderRadius: 1, fontSize: '0.75rem' }} />
-                                                            </TableCell>
-                                                            <TableCell align="center">
-                                                                <RadioGroup
-                                                                    row
-                                                                    value={s.digitalStatus}
-                                                                    onChange={(e) => handleRadioChange(s, e.target.value)}
-                                                                    sx={{ justifyContent: 'center', gap: 4 }}
-                                                                >
-                                                                    <Radio value="passed" size="small" sx={{ p: 0.5, '&.Mui-checked': { color: '#10b981' } }} />
-                                                                    <Radio value="rejected" size="small" sx={{ p: 0.5, '&.Mui-checked': { color: '#ef4444' } }} />
-                                                                </RadioGroup>
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    ))}
-                                                </TableBody>
-                                            </Table>
-                                        </TableContainer>
-                                    </AccordionDetails>
-                                </Accordion>
-                            ))}
-                        </AccordionDetails>
-                    </Accordion>
-                ))}
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </TableContainer>
+                                </AccordionDetails>
+                            </Accordion>
+                        ))}
+                    </Box>
+                )}
 
 
                 <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">

@@ -76,28 +76,28 @@ function Profile({ user }) {
       case 'Student':
         return (
           <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
                 <CircleIcon sx={{ fontSize: 10, color: themeColor }} />
                 <Typography variant="subtitle2" fontWeight="bold" color="text.secondary">ข้อมูลการศึกษา</Typography>
               </Box>
               <Grid container spacing={2}>
-                <Grid item xs={12}><InfoCard icon={<BadgeIcon />} label="รหัสนักศึกษา" value={user.id} /></Grid>
-                <Grid item xs={6}><InfoCard icon={<CalendarTodayIcon />} label="ชั้นปี" value={user.year} /></Grid>
-                <Grid item xs={6}><InfoCard icon={<PersonIcon />} label="ภาคเรียน" value={user.program} /></Grid>
-                <Grid item xs={12}><InfoCard icon={<BookIcon />} label="หลักสูตร" value={user.curriculum} /></Grid>
+                <Grid size={{ xs: 12 }}><InfoCard icon={<BadgeIcon />} label="รหัสนักศึกษา" value={user.id} /></Grid>
+                <Grid size={{ xs: 6 }}><InfoCard icon={<CalendarTodayIcon />} label="ชั้นปี" value={user.year} /></Grid>
+                <Grid size={{ xs: 6 }}><InfoCard icon={<PersonIcon />} label="ภาคเรียน" value={user.program} /></Grid>
+                <Grid size={{ xs: 12 }}><InfoCard icon={<BookIcon />} label="หลักสูตร" value={user.curriculum} /></Grid>
               </Grid>
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
                 <CircleIcon sx={{ fontSize: 10, color: themeColor }} />
                 <Typography variant="subtitle2" fontWeight="bold" color="text.secondary">สังกัด & ติดต่อ</Typography>
               </Box>
               <Grid container spacing={2}>
-                <Grid item xs={12}><InfoCard icon={<AccountBalanceIcon />} label="คณะ" value={user.faculty} /></Grid>
-                <Grid item xs={12}><InfoCard icon={<SchoolIcon />} label="สาขาวิชา" value={user.major} /></Grid>
-                <Grid item xs={12}><InfoCard icon={<EmailIcon />} label="อีเมล" value={user.email} /></Grid>
-                <Grid item xs={12}><InfoCard icon={<PhoneIcon />} label="เบอร์โทรศัพท์" value={user.phone} /></Grid>
+                <Grid size={{ xs: 12 }}><InfoCard icon={<AccountBalanceIcon />} label="คณะ" value={user.faculty} /></Grid>
+                <Grid size={{ xs: 12 }}><InfoCard icon={<SchoolIcon />} label="สาขาวิชา" value={user.major} /></Grid>
+                <Grid size={{ xs: 12 }}><InfoCard icon={<EmailIcon />} label="อีเมล" value={user.email} /></Grid>
+                <Grid size={{ xs: 12 }}><InfoCard icon={<PhoneIcon />} label="เบอร์โทรศัพท์" value={user.phone} /></Grid>
               </Grid>
             </Grid>
           </Grid>
@@ -105,25 +105,25 @@ function Profile({ user }) {
       case 'Advisor':
         return (
           <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
                 <CircleIcon sx={{ fontSize: 10, color: themeColor }} />
                 <Typography variant="subtitle2" fontWeight="bold" color="text.secondary">ข้อมูลอาจารย์</Typography>
               </Box>
               <Grid container spacing={2}>
-                <Grid item xs={12}><InfoCard icon={<BadgeIcon />} label="รหัสอาจารย์" value={user.id} /></Grid>
-                <Grid item xs={12}><InfoCard icon={<AccountBalanceIcon />} label="คณะ" value={user.faculty} /></Grid>
-                <Grid item xs={12}><InfoCard icon={<SchoolIcon />} label="สาขาวิชา" value={user.major} /></Grid>
+                <Grid size={{ xs: 12 }}><InfoCard icon={<BadgeIcon />} label="รหัสอาจารย์" value={user.id} /></Grid>
+                <Grid size={{ xs: 12 }}><InfoCard icon={<AccountBalanceIcon />} label="คณะ" value={user.faculty} /></Grid>
+                <Grid size={{ xs: 12 }}><InfoCard icon={<SchoolIcon />} label="สาขาวิชา" value={user.major} /></Grid>
               </Grid>
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
                 <CircleIcon sx={{ fontSize: 10, color: themeColor }} />
                 <Typography variant="subtitle2" fontWeight="bold" color="text.secondary">ข้อมูลติดต่อ</Typography>
               </Box>
               <Grid container spacing={2}>
-                <Grid item xs={12}><InfoCard icon={<EmailIcon />} label="อีเมล" value={user.email} /></Grid>
-                <Grid item xs={12}><InfoCard icon={<PhoneIcon />} label="เบอร์โทรศัพท์" value={user.phone} /></Grid>
+                <Grid size={{ xs: 12 }}><InfoCard icon={<EmailIcon />} label="อีเมล" value={user.email} /></Grid>
+                <Grid size={{ xs: 12 }}><InfoCard icon={<PhoneIcon />} label="เบอร์โทรศัพท์" value={user.phone} /></Grid>
               </Grid>
             </Grid>
           </Grid>
@@ -131,24 +131,24 @@ function Profile({ user }) {
       case 'Office':
         return (
           <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
                 <CircleIcon sx={{ fontSize: 10, color: themeColor }} />
                 <Typography variant="subtitle2" fontWeight="bold" color="text.secondary">ข้อมูลเจ้าหน้าที่</Typography>
               </Box>
               <Grid container spacing={2}>
-                <Grid item xs={12}><InfoCard icon={<BadgeIcon />} label="รหัสเจ้าหน้าที่" value={user.id} /></Grid>
-                <Grid item xs={12}><InfoCard icon={<BusinessIcon />} label="ประจำสำนักงาน" value={user.office} /></Grid>
+                <Grid size={{ xs: 12 }}><InfoCard icon={<BadgeIcon />} label="รหัสเจ้าหน้าที่" value={user.id} /></Grid>
+                <Grid size={{ xs: 12 }}><InfoCard icon={<BusinessIcon />} label="ประจำสำนักงาน" value={user.office} /></Grid>
               </Grid>
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
                 <CircleIcon sx={{ fontSize: 10, color: themeColor }} />
                 <Typography variant="subtitle2" fontWeight="bold" color="text.secondary">ข้อมูลติดต่อ</Typography>
               </Box>
               <Grid container spacing={2}>
-                <Grid item xs={12}><InfoCard icon={<EmailIcon />} label="อีเมล" value={user.email} /></Grid>
-                <Grid item xs={12}><InfoCard icon={<PhoneIcon />} label="เบอร์โทรศัพท์" value={user.phone} /></Grid>
+                <Grid size={{ xs: 12 }}><InfoCard icon={<EmailIcon />} label="อีเมล" value={user.email} /></Grid>
+                <Grid size={{ xs: 12 }}><InfoCard icon={<PhoneIcon />} label="เบอร์โทรศัพท์" value={user.phone} /></Grid>
               </Grid>
             </Grid>
           </Grid>

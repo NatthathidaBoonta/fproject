@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Box, Paper, Typography, TextField, MenuItem, Divider,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, IconButton, Button
@@ -7,14 +7,15 @@ import {
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 
-// Import ฟอร์มย่อย
+// ... (previous imports)
 import OfficeForm from '../office/OfficeForm';
 import AdvisorForm from './AdvisorForm';
 import StudentForm from './StudentForm';
 
-export default function AdminPage({ users, setUsers, advisors }) {
+export default function AdminPage({ users, setUsers, advisors, onRefresh }) {
   const [currentRole, setCurrentRole] = useState('Office');
   const location = useLocation();
+  const navigate = useNavigate();
 
   // --- State ใหม่สำหรับเก็บข้อมูลที่กำลังแก้ไข ---
   const [editData, setEditData] = useState(null);
@@ -24,12 +25,17 @@ export default function AdminPage({ users, setUsers, advisors }) {
       const user = location.state.userToEdit;
       setEditData(user);
       setCurrentRole(user.role);
-      // Clear state so refresh doesn't keep it? Or keep it.
-      // window.history.replaceState({}, document.title); // Optional
     }
   }, [location.state]);
 
-
+  const handleSaved = (message) => {
+    navigate('/admin', {
+      replace: true,
+      state: {
+        successMessage: message || 'บันทึกข้อมูลสำเร็จ'
+      }
+    });
+  };
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: '#ffffff', py: 6 }}>
@@ -67,13 +73,13 @@ export default function AdminPage({ users, setUsers, advisors }) {
 
             {/* Forms */}
             {currentRole === 'Office' && (
-              <OfficeForm setUsers={setUsers} users={users} editData={editData} setEditData={setEditData} />
+              <OfficeForm onRefresh={onRefresh} editData={editData} setEditData={setEditData} onSaved={handleSaved} />
             )}
             {currentRole === 'Advisor' && (
-              <AdvisorForm setUsers={setUsers} users={users} editData={editData} setEditData={setEditData} />
+              <AdvisorForm onRefresh={onRefresh} editData={editData} setEditData={setEditData} onSaved={handleSaved} />
             )}
             {currentRole === 'Student' && (
-              <StudentForm setUsers={setUsers} users={users} advisors={advisors} editData={editData} setEditData={setEditData} />
+              <StudentForm onRefresh={onRefresh} advisors={advisors} editData={editData} setEditData={setEditData} onSaved={handleSaved} />
             )}
 
             {editData && (
