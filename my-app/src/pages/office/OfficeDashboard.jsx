@@ -43,7 +43,10 @@ import PendingActionsIcon from '@mui/icons-material/PendingActions';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import GroupIcon from '@mui/icons-material/Group';
+import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import { getRequests } from "../../services/api";
+import { exportToCSV } from "../../services/csvExport";
+
 
 const mapOverallStatusToUi = (status) => {
   const normalized = String(status || '').toLowerCase();
@@ -143,6 +146,11 @@ export default function OfficeDashboard() {
   useEffect(() => {
     fetchRequests();
   }, []);
+
+  const handleExportReport = () => {
+    exportToCSV(filteredStudents, `รายงานภาพรวมคำร้องขอจบ_${statusFilter || 'ทั้งหมด'}.csv`);
+  };
+
 
   const handleRadioChange = (student, value) => {
     // This dashboard is an overview, detailed actions are in sub-pages
@@ -311,7 +319,17 @@ export default function OfficeDashboard() {
                 <MenuItem value="rejected">ไม่ผ่าน</MenuItem>
               </Select>
             </FormControl>
+            <Button
+              variant="outlined"
+              color="primary"
+              startIcon={<FileDownloadIcon />}
+              onClick={handleExportReport}
+              sx={{ borderRadius: 2, height: 40 }}
+            >
+              ส่งออกรายงาน CSV
+            </Button>
           </Box>
+
 
           {/* Render Grouping: Faculty > Branch > Year */}
           {Object.keys(groupedData).length > 0 ? (

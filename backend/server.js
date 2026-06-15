@@ -829,6 +829,83 @@ app.post('/api/requests/:id/submit', async (req, res) => {
     }
 });
 
+// อัปเดตสถานะแบบกลุ่มรายแผนก (Batch Update)
+app.patch('/api/requests/batch/step', async (req, res) => {
+    const { ids, step, status, comment, userId } = req.body;
+
+    try {
+        if (!Array.isArray(ids) || ids.length === 0) {
+            return res.status(400).json({ message: 'Invalid or empty ids array' });
+        }
+        if (!VALID_STEPS.includes(step)) {
+            return res.status(400).json({ message: 'Invalid step' });
+        }
+        const normalizedStatus = normalizeStepStatus(status);
+        if (!VALID_STEP_STATUSES.includes(normalizedStatus)) {
+            return res.status(400).json({ message: 'Invalid step status' });
+        }
+        if (!userId || typeof userId !== 'string') {
+            return res.status(400).json({ message: 'Invalid userId' });
+        }
+
+        const actor = await User.findByPk(userId);
+        if (!actor) {
+            return res.status(403).json({ message: 'User not found for this action' });
+        }
+        if (!canUserUpdateStep(actor, step)) {
+            return res.status(403).json({ message: 'You are not allowed to update this step' });
+        }
+
+        const safeComment = typeof comment === 'string' ? comment.trim() : '';
+
+        for (const id of ids) {
+            const request = await GraduationRequest.findByPk(id);
+            if (request) {
+                const updatedSteps = { ...buildDefaultSteps(), ...(request.steps || {}) };
+                if (updatedSteps[step]) {
+                    updatedSteps[step] = {
+                        status: normalizedStatus,
+                        comment: safeComment,
+                        updatedAt: new Date(),
+                    };
+
+                    const normalizedSteps = syncLegacyStepAliases(updatedSteps);
+                    request.steps = normalizedSteps;
+                    request.status = computeRequestStatus(normalizedSteps);
+                    await request.save();
+
+                    // ส่งการแจ้งเตือน
+                    if (normalizedStatus === 'rejected') {
+                        await Notification.create({
+                            userId: request.studentId,
+                            message: `คำร้องขอจบการศึกษาในส่วน ${STEP_LABELS[step] || step} ถูกปฏิเสธ${safeComment ? `: ${safeComment}` : ''}`,
+                            type: 'REJECTED'
+                        });
+                    } else if (request.status === 'Completed') {
+                        await Notification.create({
+                            userId: request.studentId,
+                            message: 'คำร้องขอจบการศึกษาของคุณผ่านการตรวจสอบครบทุกส่วนแล้ว',
+                            type: 'COMPLETED'
+                        });
+                    }
+
+                    // บันทึกประวัติ (Audit Log)
+                    await AuditLog.create({
+                        userId,
+                        action: 'UPDATE_STEP_STATUS',
+                        requestId: id,
+                        details: `[Batch] ${step} set to ${normalizedStatus} by officer: ${userId}`
+                    });
+                }
+            }
+        }
+
+        res.json({ success: true, count: ids.length });
+    } catch (error) {
+        return handleServerError(res, error);
+    }
+});
+
 // อัปเดตสถานะรายแผนก (Technique: Audit Log + Notifications)
 app.patch('/api/requests/:id/step', async (req, res) => {
     const { id } = req.params;
@@ -973,10 +1050,10 @@ app.post('/api/requests/:id/documents', (req, res, next) => {
             const normalizedInternshipStatus = normalizeStepStatus(updatedSteps.internship_fee_check?.status);
             if (normalizedInternshipStatus === 'waiting' || normalizedInternshipStatus === 'rejected') {
                 updatedSteps.internship_fee_check = {
-                    status: 'in_progress',
+                    status: 'waiting',
                     comment: normalizedInternshipStatus === 'rejected'
-                        ? 'นิสิตอัปโหลดใบเสร็จค่าออกฝึกใหม่แล้ว รอตรวจสอบจากฝ่ายทะเบียน'
-                        : 'นิสิตอัปโหลดใบเสร็จค่าออกฝึกแล้ว รอตรวจสอบจากฝ่ายทะเบียน',
+                        ? 'นิสิตอัปโหลดใบเสร็จค่าออกฝึกใหม่แล้ว กรุณากดยื่นคำร้อง'
+                        : 'นิสิตอัปโหลดใบเสร็จค่าออกฝึกแล้ว กรุณากดยื่นคำร้อง',
                     updatedAt: now,
                 };
             }
@@ -984,10 +1061,10 @@ app.post('/api/requests/:id/documents', (req, res, next) => {
             const normalizedFileCheckStatus = normalizeStepStatus(updatedSteps.file_check?.status);
             if (normalizedFileCheckStatus === 'waiting' || normalizedFileCheckStatus === 'rejected') {
                 updatedSteps.file_check = {
-                    status: 'in_progress',
+                    status: 'waiting',
                     comment: normalizedFileCheckStatus === 'rejected'
-                        ? 'นิสิตอัปโหลดเอกสารใหม่แล้ว รอตรวจสอบจากฝ่ายทะเบียน'
-                        : 'นิสิตอัปโหลดเอกสารแล้ว รอตรวจสอบจากฝ่ายทะเบียน',
+                        ? 'นิสิตอัปโหลดเอกสารใหม่แล้ว กรุณากดยื่นคำร้อง'
+                        : 'นิสิตอัปโหลดเอกสารแล้ว กรุณากดยื่นคำร้อง',
                     updatedAt: now,
                 };
             }
@@ -1039,6 +1116,16 @@ app.patch('/api/notifications/:id/read', async (req, res) => {
         return handleServerError(res, error);
     }
 });
+
+app.patch('/api/notifications/user/:userId/read-all', async (req, res) => {
+    try {
+        await Notification.update({ isRead: true }, { where: { userId: req.params.userId, isRead: false } });
+        res.json({ success: true });
+    } catch (error) {
+        return handleServerError(res, error);
+    }
+});
+
 
 // --- 5. Start Server & Sync DB ---
 async function bootstrapServer() {

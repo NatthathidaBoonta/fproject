@@ -118,6 +118,7 @@ export default function OfficeInformation() {
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState("all");
     const [dialogOpen, setDialogOpen] = useState(false);
+    const [passDialogOpen, setPassDialogOpen] = useState(false);
     const [selectedStudent, setSelectedStudent] = useState(null);
     const [tempComment, setTempComment] = useState("");
     const [selectedFaculty, setSelectedFaculty] = useState(null);
@@ -182,9 +183,16 @@ export default function OfficeInformation() {
             setSelectedStudent(student);
             setTempComment(student.digitalComment || "");
             setDialogOpen(true);
-        } else {
-            updateStatus(student.id, value, "");
+        } else if (value === "passed") {
+            setSelectedStudent(student);
+            setPassDialogOpen(true);
         }
+    };
+
+    const handleConfirmPass = async () => {
+        if (!selectedStudent) return;
+        await updateStatus(selectedStudent.id, "passed", "");
+        setPassDialogOpen(false);
     };
 
     const updateStatus = async (id, status, comment) => {
@@ -377,8 +385,8 @@ export default function OfficeInformation() {
                                                                 onChange={(e) => handleRadioChange(s, e.target.value)}
                                                                 sx={{ justifyContent: 'center', gap: 4 }}
                                                             >
-                                                                <Radio value="passed" size="small" sx={{ p: 0.5, '&.Mui-checked': { color: '#10b981' } }} />
-                                                                <Radio value="rejected" size="small" sx={{ p: 0.5, '&.Mui-checked': { color: '#ef4444' } }} />
+                                                                <Radio value="passed" size="small" disabled={s.digitalStatus === "passed"} sx={{ p: 0.5, '&.Mui-checked': { color: '#10b981' } }} />
+                                                                <Radio value="rejected" size="small" disabled={s.digitalStatus === "passed"} sx={{ p: 0.5, '&.Mui-checked': { color: '#ef4444' } }} />
                                                             </RadioGroup>
                                                         </TableCell>
                                                     </TableRow>
@@ -396,6 +404,16 @@ export default function OfficeInformation() {
                 <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
                     <DialogTitle>ระบุเหตุผลที่ไม่ผ่านเกณฑ์การสอบดิจิทัล</DialogTitle>
                     <DialogContent>
+                        {selectedStudent && (
+                            <Box sx={{ mb: 2, p: 2, bgcolor: '#f8fafc', borderRadius: 2 }}>
+                                <Typography variant="subtitle2" color="text.secondary">
+                                    รหัสนักศึกษา: <Typography component="span" fontWeight="bold" color="text.primary">{selectedStudent.studentId}</Typography>
+                                </Typography>
+                                <Typography variant="subtitle2" color="text.secondary">
+                                    ชื่อ-นามสกุล: <Typography component="span" fontWeight="bold" color="text.primary">{selectedStudent.name}</Typography>
+                                </Typography>
+                            </Box>
+                        )}
                         <TextField
                             autoFocus margin="dense" label="หมายเหตุ" fullWidth multiline rows={3}
                             value={tempComment} onChange={(e) => setTempComment(e.target.value)}
@@ -405,6 +423,29 @@ export default function OfficeInformation() {
                     <DialogActions>
                         <Button onClick={() => setDialogOpen(false)}>ยกเลิก</Button>
                         <Button onClick={handleSave} variant="contained" color="error" disabled={!tempComment.trim()}>บันทึก</Button>
+                    </DialogActions>
+                </Dialog>
+
+                <Dialog open={passDialogOpen} onClose={() => setPassDialogOpen(false)} fullWidth maxWidth="sm">
+                    <DialogTitle>ยืนยันการอนุมัติผ่านเกณฑ์</DialogTitle>
+                    <DialogContent sx={{ textAlign: 'center', py: 3 }}>
+                        <Typography variant="body1" sx={{ mb: 2 }}>
+                            คุณต้องการยืนยันให้ผ่านเกณฑ์รายการนี้ใช่หรือไม่?
+                        </Typography>
+                        {selectedStudent && (
+                            <Box sx={{ bgcolor: '#f8fafc', p: 2, borderRadius: 2, display: 'inline-block' }}>
+                                <Typography variant="subtitle2" color="text.secondary">
+                                    รหัสนักศึกษา: <Typography component="span" fontWeight="bold" color="text.primary">{selectedStudent.studentId}</Typography>
+                                </Typography>
+                                <Typography variant="subtitle2" color="text.secondary">
+                                    ชื่อ-นามสกุล: <Typography component="span" fontWeight="bold" color="text.primary">{selectedStudent.name}</Typography>
+                                </Typography>
+                            </Box>
+                        )}
+                    </DialogContent>
+                    <DialogActions>
+                        <Button onClick={() => setPassDialogOpen(false)}>ยกเลิก</Button>
+                        <Button onClick={handleConfirmPass} variant="contained" color="success">ยืนยัน</Button>
                     </DialogActions>
                 </Dialog>
             </Box>

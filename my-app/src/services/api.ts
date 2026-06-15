@@ -160,6 +160,18 @@ export const updateRequestStep = async (requestId: string, payload: any) => {
   }
 };
 
+// อัปเดตสถานะแบบกลุ่มรายแผนก
+export const updateRequestStepBatch = async (payload: { ids: string[]; step: string; status: string; comment?: string; userId: string }) => {
+  try {
+    const response = await api.patch('/requests/batch/step', payload);
+    return response.data;
+  } catch (error) {
+    console.error('Error updating request step batch:', error);
+    throw error;
+  }
+};
+
+
 export const uploadRequestDocument = async (
   requestId: string,
   file: File,
@@ -188,4 +200,38 @@ export const uploadRequestDocument = async (
   }
 };
 
+// ดึงการแจ้งเตือนทั้งหมด
+export const getNotifications = async (userId: string) => {
+  try {
+    const response = await api.get(`/notifications/${userId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching notifications:', error);
+    throw error;
+  }
+};
+
+// อัพเดตการแจ้งเตือนว่าอ่านแล้ว
+export const markNotificationAsRead = async (id: string) => {
+  try {
+    const response = await api.patch(`/notifications/${id}/read`);
+    return response.data;
+  } catch (error) {
+    console.error('Error marking notification as read:', error);
+    throw error;
+  }
+};
+
+// อัพเดตการแจ้งเตือนทั้งหมดของนักศึกษา/ผู้ใช้ว่าอ่านแล้ว
+export const markAllNotificationsAsRead = async (userId: string) => {
+  try {
+    const response = await api.patch(`/notifications/user/${userId}/read-all`);
+    return response.data;
+  } catch (error) {
+    console.error('Error marking all notifications as read:', error);
+    throw error;
+  }
+};
+
 export default api;
+

@@ -114,6 +114,7 @@ export default function OfficeEventh() {
     const [students, setStudents] = useState([]);
     const [tabValue, setTabValue] = useState(0);
     const [dialogOpen, setDialogOpen] = useState(false);
+    const [passDialogOpen, setPassDialogOpen] = useState(false);
     const [selectedStudent, setSelectedStudent] = useState(null);
     const [tempComment, setTempComment] = useState("");
     const [selectedFaculty, setSelectedFaculty] = useState(null);
@@ -187,9 +188,16 @@ export default function OfficeEventh() {
             setSelectedStudent({ student, field });
             setTempComment(tabValue === 0 ? student.commentGeneral : student.commentFaculty);
             setDialogOpen(true);
-        } else {
-            updateStudentStatus(student.id, field, value, "");
+        } else if (value === "passed") {
+            setSelectedStudent({ student, field });
+            setPassDialogOpen(true);
         }
+    };
+
+    const handleConfirmPass = async () => {
+        if (!selectedStudent) return;
+        await updateStudentStatus(selectedStudent.student.id, selectedStudent.field, "passed", "");
+        setPassDialogOpen(false);
     };
 
     const updateStudentStatus = async (id, field, status, comment) => {
@@ -400,8 +408,8 @@ export default function OfficeEventh() {
                                                                     onChange={(e) => handleRadioChange(s, statusField, e.target.value)}
                                                                     sx={{ justifyContent: 'center', gap: 4 }}
                                                                 >
-                                                                    <Radio value="passed" size="small" sx={{ p: 0.5, '&.Mui-checked': { color: '#10b981' } }} />
-                                                                    <Radio value="rejected" size="small" sx={{ p: 0.5, '&.Mui-checked': { color: '#ef4444' } }} />
+                                                                    <Radio value="passed" size="small" disabled={s[statusField] === "passed"} sx={{ p: 0.5, '&.Mui-checked': { color: '#10b981' } }} />
+                                                                    <Radio value="rejected" size="small" disabled={s[statusField] === "passed"} sx={{ p: 0.5, '&.Mui-checked': { color: '#ef4444' } }} />
                                                                 </RadioGroup>
                                                             </TableCell>
                                                         </TableRow>
@@ -419,6 +427,16 @@ export default function OfficeEventh() {
                 <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
                     <DialogTitle>ระบุหมายเหตุ (ไม่ผ่าน)</DialogTitle>
                     <DialogContent>
+                        {selectedStudent?.student && (
+                            <Box sx={{ mb: 2, p: 2, bgcolor: '#f8fafc', borderRadius: 2 }}>
+                                <Typography variant="subtitle2" color="text.secondary">
+                                    รหัสนักศึกษา: <Typography component="span" fontWeight="bold" color="text.primary">{selectedStudent.student.studentId}</Typography>
+                                </Typography>
+                                <Typography variant="subtitle2" color="text.secondary">
+                                    ชื่อ-นามสกุล: <Typography component="span" fontWeight="bold" color="text.primary">{selectedStudent.student.name}</Typography>
+                                </Typography>
+                            </Box>
+                        )}
                         <TextField
                             autoFocus
                             margin="dense"
@@ -435,6 +453,29 @@ export default function OfficeEventh() {
                     <DialogActions>
                         <Button onClick={() => setDialogOpen(false)}>ยกเลิก</Button>
                         <Button onClick={handleSaveComment} variant="contained" color="error" disabled={!tempComment.trim()}>บันทึกรายการ</Button>
+                    </DialogActions>
+                </Dialog>
+
+                <Dialog open={passDialogOpen} onClose={() => setPassDialogOpen(false)} fullWidth maxWidth="sm">
+                    <DialogTitle>ยืนยันการอนุมัติผ่าน</DialogTitle>
+                    <DialogContent sx={{ textAlign: 'center', py: 3 }}>
+                        <Typography variant="body1" sx={{ mb: 2 }}>
+                            คุณต้องการยืนยันให้ผ่านรายการนี้ใช่หรือไม่?
+                        </Typography>
+                        {selectedStudent?.student && (
+                            <Box sx={{ bgcolor: '#f8fafc', p: 2, borderRadius: 2, display: 'inline-block' }}>
+                                <Typography variant="subtitle2" color="text.secondary">
+                                    รหัสนักศึกษา: <Typography component="span" fontWeight="bold" color="text.primary">{selectedStudent.student.studentId}</Typography>
+                                </Typography>
+                                <Typography variant="subtitle2" color="text.secondary">
+                                    ชื่อ-นามสกุล: <Typography component="span" fontWeight="bold" color="text.primary">{selectedStudent.student.name}</Typography>
+                                </Typography>
+                            </Box>
+                        )}
+                    </DialogContent>
+                    <DialogActions>
+                        <Button onClick={() => setPassDialogOpen(false)}>ยกเลิก</Button>
+                        <Button onClick={handleConfirmPass} variant="contained" color="success">ยืนยัน</Button>
                     </DialogActions>
                 </Dialog>
             </Box>

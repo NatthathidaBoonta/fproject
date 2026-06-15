@@ -119,6 +119,7 @@ export default function OfficeLibrary() {
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState("all");
     const [dialogOpen, setDialogOpen] = useState(false);
+    const [passDialogOpen, setPassDialogOpen] = useState(false);
     const [selectedStudent, setSelectedStudent] = useState(null);
     const [tempComment, setTempComment] = useState("");
     const [selectedFaculty, setSelectedFaculty] = useState(null);
@@ -187,9 +188,16 @@ export default function OfficeLibrary() {
             setSelectedStudent(student);
             setTempComment(student.comment || "");
             setDialogOpen(true);
-        } else {
-            updateStatus(student.id, value, "");
+        } else if (value === "passed") {
+            setSelectedStudent(student);
+            setPassDialogOpen(true);
         }
+    };
+
+    const handleConfirmPass = async () => {
+        if (!selectedStudent) return;
+        await updateStatus(selectedStudent.id, "passed", "");
+        setPassDialogOpen(false);
     };
 
     const updateStatus = async (id, status, comment) => {
@@ -461,8 +469,8 @@ export default function OfficeLibrary() {
                                                                                     onChange={(e) => handleRadioChange(student, e.target.value)}
                                                                                     sx={{ justifyContent: 'center', gap: 4 }}
                                                                                 >
-                                                                                    <Radio value="passed" size="small" sx={{ p: 0.5, '&.Mui-checked': { color: '#10b981' } }} />
-                                                                                    <Radio value="rejected" size="small" sx={{ p: 0.5, '&.Mui-checked': { color: '#ef4444' } }} />
+                                                                                    <Radio value="passed" size="small" disabled={student.status === "passed"} sx={{ p: 0.5, '&.Mui-checked': { color: '#10b981' } }} />
+                                                                                    <Radio value="rejected" size="small" disabled={student.status === "passed"} sx={{ p: 0.5, '&.Mui-checked': { color: '#ef4444' } }} />
                                                                                 </RadioGroup>
                                                                             </Box>
                                                                         </TableCell>
@@ -490,6 +498,16 @@ export default function OfficeLibrary() {
             <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
                 <DialogTitle>ระบุหมายเหตุ (ไม่อนุมัติ)</DialogTitle>
                 <DialogContent>
+                    {selectedStudent && (
+                        <Box sx={{ mb: 2, p: 2, bgcolor: '#f8fafc', borderRadius: 2 }}>
+                            <Typography variant="subtitle2" color="text.secondary">
+                                รหัสนักศึกษา: <Typography component="span" fontWeight="bold" color="text.primary">{selectedStudent.studentId}</Typography>
+                            </Typography>
+                            <Typography variant="subtitle2" color="text.secondary">
+                                ชื่อ-นามสกุล: <Typography component="span" fontWeight="bold" color="text.primary">{selectedStudent.name}</Typography>
+                            </Typography>
+                        </Box>
+                    )}
                     <TextField
                         autoFocus margin="dense" label="เหตุผลที่ไม่ผ่าน / หมายเหตุ" fullWidth multiline rows={3}
                         variant="outlined"
@@ -500,6 +518,29 @@ export default function OfficeLibrary() {
                 <DialogActions>
                     <Button onClick={() => setDialogOpen(false)}>ยกเลิก</Button>
                     <Button onClick={handleSave} variant="contained" color="error" disabled={!tempComment.trim()}>บันทึกรายการ</Button>
+                </DialogActions>
+            </Dialog>
+
+            <Dialog open={passDialogOpen} onClose={() => setPassDialogOpen(false)} fullWidth maxWidth="sm">
+                <DialogTitle>ยืนยันการอนุมัติผ่าน</DialogTitle>
+                <DialogContent sx={{ textAlign: 'center', py: 3 }}>
+                    <Typography variant="body1" sx={{ mb: 2 }}>
+                        คุณต้องการยืนยันให้ผ่านรายการนี้ใช่หรือไม่?
+                    </Typography>
+                    {selectedStudent && (
+                        <Box sx={{ bgcolor: '#f8fafc', p: 2, borderRadius: 2, display: 'inline-block' }}>
+                            <Typography variant="subtitle2" color="text.secondary">
+                                รหัสนักศึกษา: <Typography component="span" fontWeight="bold" color="text.primary">{selectedStudent.studentId}</Typography>
+                            </Typography>
+                            <Typography variant="subtitle2" color="text.secondary">
+                                ชื่อ-นามสกุล: <Typography component="span" fontWeight="bold" color="text.primary">{selectedStudent.name}</Typography>
+                            </Typography>
+                        </Box>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setPassDialogOpen(false)}>ยกเลิก</Button>
+                    <Button onClick={handleConfirmPass} variant="contained" color="success">ยืนยัน</Button>
                 </DialogActions>
             </Dialog>
         </Box>

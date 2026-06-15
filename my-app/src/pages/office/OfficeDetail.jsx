@@ -59,6 +59,7 @@ export default function OfficeDetail() {
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [openRejectDialog, setOpenRejectDialog] = useState(false);
+  const [openApproveDialog, setOpenApproveDialog] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMessage, setDialogMessage] = useState("");
@@ -132,7 +133,12 @@ export default function OfficeDetail() {
     }
   };
 
-  const handleApprove = () => {
+  const handleApproveClick = () => {
+    setOpenApproveDialog(true);
+  };
+
+  const confirmApprove = () => {
+    setOpenApproveDialog(false);
     updateOfficeStep('approved');
   };
 
@@ -235,7 +241,7 @@ export default function OfficeDetail() {
               <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
                 <Button
                   variant="contained"
-                  onClick={handleApprove}
+                  onClick={handleApproveClick}
                   disabled={isSubmitting}
                   disableElevation
                   startIcon={<CheckCircleIcon />}
@@ -305,6 +311,30 @@ export default function OfficeDetail() {
           <Button onClick={() => setOpenRejectDialog(false)} sx={{ color: '#64748b' }}>ยกเลิก</Button>
           <Button onClick={handleReject} variant="contained" color="error" disableElevation disabled={!rejectReason.trim() || isSubmitting}>
             ยืนยันปฏิเสธ
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog สำหรับยืนยันการอนุมัติ */}
+      <Dialog open={openApproveDialog} onClose={() => setOpenApproveDialog(false)} fullWidth maxWidth="sm">
+        <DialogTitle sx={{ fontWeight: 'bold' }}>ยืนยันการอนุมัติ</DialogTitle>
+        <DialogContent sx={{ textAlign: 'center', py: 3 }}>
+          <Typography variant="body1" sx={{ mb: 2 }}>
+            คุณต้องการอนุมัติคำร้องนี้ผ่านใช่หรือไม่?
+          </Typography>
+          <Box sx={{ bgcolor: '#f8fafc', p: 2, borderRadius: 2, display: 'inline-block' }}>
+            <Typography variant="subtitle2" color="text.secondary">
+              รหัสนักศึกษา: <Typography component="span" fontWeight="bold" color="text.primary">{requestData?.studentId}</Typography>
+            </Typography>
+            <Typography variant="subtitle2" color="text.secondary">
+              ชื่อ-นามสกุล: <Typography component="span" fontWeight="bold" color="text.primary">{requestData?.User?.name || '-'}</Typography>
+            </Typography>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setOpenApproveDialog(false)} sx={{ color: '#64748b' }}>ยกเลิก</Button>
+          <Button onClick={confirmApprove} variant="contained" color="success" disableElevation disabled={isSubmitting} sx={{ bgcolor: '#10b981', '&:hover': { bgcolor: '#059669' } }}>
+            ยืนยันอนุมัติ
           </Button>
         </DialogActions>
       </Dialog>
