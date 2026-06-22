@@ -7,10 +7,10 @@ const fs = require('fs');
 const multer = require('multer');
 const crypto = require('crypto');
 const { promisify } = require('util');
-require('dotenv').config();
+require('dotenv').config({ override: true });
 
 const app = express();
-const PORT = 3001;
+const PORT = process.env.PORT || 5000;
 const pbkdf2Async = promisify(crypto.pbkdf2);
 const PASSWORD_PREFIX = 'pbkdf2';
 const VALID_ROLES = ['Admin', 'Advisor', 'Office', 'Student'];
@@ -863,6 +863,12 @@ app.patch('/api/requests/batch/step', async (req, res) => {
             if (request) {
                 const updatedSteps = { ...buildDefaultSteps(), ...(request.steps || {}) };
                 if (updatedSteps[step]) {
+                    // Check if current status is already approved
+                    const currentStatus = normalizeStepStatus(updatedSteps[step]?.status);
+                    if (currentStatus === 'approved' && normalizedStatus !== 'approved') {
+                        continue; // Skip changing approved steps
+                    }
+
                     updatedSteps[step] = {
                         status: normalizedStatus,
                         comment: safeComment,
@@ -936,6 +942,12 @@ app.patch('/api/requests/:id/step', async (req, res) => {
 
         const updatedSteps = { ...buildDefaultSteps(), ...(request.steps || {}) };
         if (!updatedSteps[step]) return res.status(400).json({ message: 'Invalid step' });
+
+        // Check if current status is already approved
+        const currentStatus = normalizeStepStatus(updatedSteps[step]?.status);
+        if (currentStatus === 'approved' && normalizedStatus !== 'approved') {
+            return res.status(400).json({ message: 'Cannot modify a step that has already been approved' });
+        }
 
         const safeComment = typeof comment === 'string' ? comment.trim() : '';
 

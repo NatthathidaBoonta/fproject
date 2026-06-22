@@ -28,6 +28,16 @@ import {
     Card,
     CardContent,
     Checkbox,
+    IconButton,
+    Tooltip,
+    Badge,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem,
+    InputAdornment,
+    Snackbar,
+    Alert,
 } from "@mui/material";
 import { alpha } from '@mui/material/styles';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -47,49 +57,55 @@ import MedicalServicesIcon from '@mui/icons-material/MedicalServices';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
+import SearchIcon from '@mui/icons-material/Search';
+import ClearIcon from '@mui/icons-material/Clear';
 import { API_BASE_URL, getRequests, updateRequestStep, updateRequestStepBatch } from "../../services/api";
 import { exportToCSV } from "../../services/csvExport";
 
 // Stat Card Component
-const StatCard = ({ icon, title, count, color }) => (
-    <Card sx={{
-        height: '100%',
-        borderRadius: 4,
-        border: '1px solid #f1f5f9',
-        boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
-        transition: 'all 0.3s ease',
-        '&:hover': {
-            transform: 'translateY(-5px)',
-            boxShadow: `0 10px 25px ${alpha(color, 0.2)}`
-        },
-        position: 'relative',
-        overflow: 'hidden'
-    }}>
-        <Box sx={{
-            position: 'absolute',
-            top: -10,
-            right: -10,
-            width: 100,
-            height: 100,
-            borderRadius: '50%',
-            bgcolor: alpha(color, 0.1),
-            zIndex: 0
-        }} />
+const StatCard = ({ icon, title, count, color, active, onClick }) => (
+    <Card 
+        onClick={onClick}
+        sx={{
+            height: '100%',
+            borderRadius: 4,
+            border: '2px solid',
+            borderColor: active ? color : '#f1f5f9',
+            boxShadow: active ? `0 10px 25px ${alpha(color, 0.15)}` : '0 4px 20px rgba(0,0,0,0.05)',
+            cursor: 'pointer',
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            '&:hover': {
+                transform: 'translateY(-5px)',
+                boxShadow: `0 10px 25px ${alpha(color, 0.25)}`,
+                borderColor: color,
+                '& .icon-box': {
+                    transform: 'scale(1.2)'
+                }
+            },
+            position: 'relative',
+            overflow: 'hidden',
+            bgcolor: active ? alpha(color, 0.02) : 'background.paper'
+        }}
+    >
         <CardContent sx={{ position: 'relative', zIndex: 1, p: 3 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                <Box sx={{
-                    p: 1.5,
-                    borderRadius: 3,
-                    bgcolor: alpha(color, 0.1),
-                    color: color,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    mr: 2
-                }}>
+                <Box 
+                    className="icon-box"
+                    sx={{
+                        p: 1.5,
+                        borderRadius: 3,
+                        bgcolor: alpha(color, 0.1),
+                        color: color,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        mr: 2,
+                        transition: 'transform 0.3s ease'
+                    }}
+                >
                     {icon}
                 </Box>
-                <Typography variant="body2" fontWeight="600" color="text.secondary">{title}</Typography>
+                <Typography variant="body2" fontWeight="700" color={active ? color : "text.secondary"}>{title}</Typography>
             </Box>
             <Typography variant="h3" fontWeight="800" color="text.primary">
                 {count}
@@ -204,6 +220,15 @@ export default function OfficeRegistration() {
     const [batchRejectOpen, setBatchRejectOpen] = useState(false);
     const [batchRejectComment, setBatchRejectComment] = useState("");
 
+    // Search and filter states
+    const [searchTerm, setSearchTerm] = useState("");
+    const [statusFilter, setStatusFilter] = useState("all");
+
+    // Toast (Snackbar) states
+    const [snackbarOpen, setSnackbarOpen] = useState(false);
+    const [snackbarMessage, setSnackbarMessage] = useState("");
+    const [snackbarSeverity, setSnackbarSeverity] = useState("success");
+
     const currentUser = useMemo(() => {
         try {
             return JSON.parse(localStorage.getItem('user') || 'null');
@@ -248,6 +273,9 @@ export default function OfficeRegistration() {
         if (!selectedAction) return;
         await updateStatus(selectedAction.student.id, selectedAction.checkType, "passed", "");
         setPassDialogOpen(false);
+        setSnackbarMessage("สถานะอัปเดตเป็นผ่านสำเร็จ 🎉");
+        setSnackbarSeverity("success");
+        setSnackbarOpen(true);
     };
 
     const updateStatus = async (id, checkType, status, comment) => {
@@ -277,6 +305,9 @@ export default function OfficeRegistration() {
         if (!tempComment.trim()) return;
         await updateStatus(selectedAction.student.id, selectedAction.checkType, "rejected", tempComment);
         setDialogOpen(false);
+        setSnackbarMessage("ปฏิเสธคำร้องและบันทึกหมายเหตุเรียบร้อย ❌");
+        setSnackbarSeverity("warning");
+        setSnackbarOpen(true);
     };
 
     // Batch Actions handlers
@@ -289,23 +320,41 @@ export default function OfficeRegistration() {
     };
 
     const handleSelectAllInBranch = (branchStudents, checked) => {
-        const ids = branchStudents.map(s => s.id);
+        const currentCheckType = checkTypes[tabValue].key;
+        const ids = branchStudents
+            .filter(s => s[currentCheckType]?.status !== 'passed')
+            .map(s => s.id);
         if (checked) {
             setSelectedRequestIds(prev => {
                 const newIds = ids.filter(id => !prev.includes(id));
                 return [...prev, ...newIds];
             });
         } else {
-            setSelectedRequestIds(prev => prev.filter(id => !ids.includes(id)));
+            const allBranchIds = branchStudents.map(s => s.id);
+            setSelectedRequestIds(prev => prev.filter(id => !allBranchIds.includes(id)));
         }
     };
 
     const handleBatchApproveConfirm = async () => {
         if (selectedRequestIds.length === 0) return;
         const stepKey = checkTypes[tabValue].stepKey;
+        const currentCheckType = checkTypes[tabValue].key;
+
+        // Filter out already passed students
+        const targetIds = selectedRequestIds.filter(id => {
+            const student = students.find(s => s.id === id);
+            return student && student[currentCheckType]?.status !== 'passed';
+        });
+
+        if (targetIds.length === 0) {
+            setSelectedRequestIds([]);
+            setBatchApproveOpen(false);
+            return;
+        }
+
         try {
             await updateRequestStepBatch({
-                ids: selectedRequestIds,
+                ids: targetIds,
                 step: stepKey,
                 status: 'approved',
                 comment: '',
@@ -314,17 +363,38 @@ export default function OfficeRegistration() {
             setSelectedRequestIds([]);
             setBatchApproveOpen(false);
             await fetchRequests();
+            setSnackbarMessage(`อนุมัติผ่านกลุ่มจำนวน ${targetIds.length} รายการสำเร็จ 🎉`);
+            setSnackbarSeverity("success");
+            setSnackbarOpen(true);
         } catch (error) {
             console.error('Failed batch approve:', error);
+            setSnackbarMessage("เกิดข้อผิดพลาดในการอนุมัติกลุ่ม");
+            setSnackbarSeverity("error");
+            setSnackbarOpen(true);
         }
     };
 
     const handleBatchRejectConfirm = async () => {
         if (selectedRequestIds.length === 0 || !batchRejectComment.trim()) return;
         const stepKey = checkTypes[tabValue].stepKey;
+        const currentCheckType = checkTypes[tabValue].key;
+
+        // Filter out already passed students
+        const targetIds = selectedRequestIds.filter(id => {
+            const student = students.find(s => s.id === id);
+            return student && student[currentCheckType]?.status !== 'passed';
+        });
+
+        if (targetIds.length === 0) {
+            setSelectedRequestIds([]);
+            setBatchRejectComment("");
+            setBatchRejectOpen(false);
+            return;
+        }
+
         try {
             await updateRequestStepBatch({
-                ids: selectedRequestIds,
+                ids: targetIds,
                 step: stepKey,
                 status: 'rejected',
                 comment: batchRejectComment,
@@ -334,8 +404,14 @@ export default function OfficeRegistration() {
             setBatchRejectComment("");
             setBatchRejectOpen(false);
             await fetchRequests();
+            setSnackbarMessage(`ปฏิเสธกลุ่มจำนวน ${targetIds.length} รายการสำเร็จ ❌`);
+            setSnackbarSeverity("warning");
+            setSnackbarOpen(true);
         } catch (error) {
             console.error('Failed batch reject:', error);
+            setSnackbarMessage("เกิดข้อผิดพลาดในการปฏิเสธกลุ่ม");
+            setSnackbarSeverity("error");
+            setSnackbarOpen(true);
         }
     };
 
@@ -367,7 +443,7 @@ export default function OfficeRegistration() {
         return `${API_BASE_URL}${document.url}`;
     };
 
-    const THEME_GRADIENT = "linear-gradient(to right, #064460, #095a80, #0e83b8)";
+    const THEME_GRADIENT = "linear-gradient(to right, #7c2d12, #c2410c, #ea580c)";
 
     const stats = useMemo(() => {
         const type = checkTypes[tabValue].key;
@@ -382,7 +458,23 @@ export default function OfficeRegistration() {
 
     const groupedData = useMemo(() => {
         const groups = {};
-        students.forEach(s => {
+        const type = checkTypes[tabValue].key;
+
+        const filtered = students.filter(s => {
+            const matchesFaculty = !selectedFaculty || s.faculty === selectedFaculty;
+            
+            // Map the status filter
+            const matchesStatus = statusFilter === 'all' || s[type].status === statusFilter;
+            
+            // Map the search term
+            const matchesSearch = !searchTerm.trim() ||
+                s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                s.studentId.toLowerCase().includes(searchTerm.toLowerCase());
+                
+            return matchesFaculty && matchesStatus && matchesSearch;
+        });
+
+        filtered.forEach(s => {
             const fac = s.faculty || 'อื่นๆ';
             const branch = s.branch || 'สาขาทั่วไป';
             if (!groups[fac]) groups[fac] = {};
@@ -390,21 +482,63 @@ export default function OfficeRegistration() {
             groups[fac][branch].push(s);
         });
         return groups;
-    }, [students]);
+    }, [students, tabValue, selectedFaculty, statusFilter, searchTerm]);
+
+    const filteredCount = useMemo(() => {
+        let count = 0;
+        if (selectedFaculty) {
+            const branches = groupedData[selectedFaculty] || {};
+            Object.keys(branches).forEach(b => {
+                count += branches[b].length;
+            });
+        } else {
+            Object.keys(groupedData).forEach(fac => {
+                Object.keys(groupedData[fac]).forEach(b => {
+                    count += groupedData[fac][b].length;
+                });
+            });
+        }
+        return count;
+    }, [groupedData, selectedFaculty]);
 
     return (
         <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', p: 3 }}>
             <Box sx={{ maxWidth: 1400, mx: 'auto' }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-                    <Typography variant="h4" fontWeight="800" color="text.primary">งานทะเบียนและวัดผล</Typography>
+                <Box
+                    sx={{
+                        py: 3,
+                        mb: 4,
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        flexWrap: 'wrap',
+                        gap: 2,
+                        borderBottom: '1px solid',
+                        borderColor: 'divider'
+                    }}
+                >
+                    <Box>
+                        <Typography variant="h4" fontWeight="800" sx={{ mb: 1, letterSpacing: -0.5, color: 'text.primary' }}>
+                            งานทะเบียนและวัดผล
+                        </Typography>
+                        <Typography variant="body1" sx={{ color: 'text.secondary', fontWeight: 500 }}>
+                            ระบบตรวจสอบคุณสมบัติผู้สำเร็จการศึกษา สำหรับเจ้าหน้าที่ฝ่ายทะเบียน
+                        </Typography>
+                    </Box>
                     <Button
-                        variant="outlined"
+                        variant="contained"
+                        color="primary"
                         startIcon={<FileDownloadIcon />}
                         onClick={handleExportReport}
-                        sx={{ borderRadius: 2, fontWeight: 700 }}
+                        sx={{ 
+                            borderRadius: 3, 
+                            fontWeight: 700,
+                            px: 3,
+                            py: 1.2,
+                        }}
                     >
                         ส่งออกข้อมูล CSV
-                      </Button>
+                    </Button>
                 </Box>
 
                 {loading && (
@@ -413,40 +547,45 @@ export default function OfficeRegistration() {
                     </Typography>
                 )}
 
-                <Grid container spacing={3} sx={{ mb: 4 }}>
-                    <Grid item xs={12} sm={6} md={3}>
-                        <StatCard
-                            icon={<PeopleIcon fontSize="large" />}
-                            title="นักศึกษาทั้งหมด"
-                            count={stats.total}
-                            color="#3b82f6"
-                        />
-                    </Grid>
-                    <Grid item xs={12} sm={6} md={3}>
-                        <StatCard
-                            icon={<PendingActionsIcon fontSize="large" />}
-                            title="รอดำเนินการ"
-                            count={stats.waiting}
-                            color="#f59e0b"
-                        />
-                    </Grid>
-                    <Grid item xs={12} sm={6} md={3}>
-                        <StatCard
-                            icon={<CheckCircleIcon fontSize="large" />}
-                            title="ผ่าน/ครบถ้วน"
-                            count={stats.passed}
-                            color="#16a34a"
-                        />
-                    </Grid>
-                    <Grid item xs={12} sm={6} md={3}>
-                        <StatCard
-                            icon={<CancelIcon fontSize="large" />}
-                            title="ไม่ผ่าน"
-                            count={stats.rejected}
-                            color="#ef4444"
-                        />
-                    </Grid>
-                </Grid>
+                <Box sx={{
+                    display: 'grid',
+                    gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' },
+                    gap: 3,
+                    mb: 4
+                }}>
+                    <StatCard
+                        icon={<PeopleIcon fontSize="large" />}
+                        title="นักศึกษาทั้งหมด"
+                        count={stats.total}
+                        color="#3b82f6"
+                        active={statusFilter === 'all'}
+                        onClick={() => setStatusFilter('all')}
+                    />
+                    <StatCard
+                        icon={<PendingActionsIcon fontSize="large" />}
+                        title="รอดำเนินการ"
+                        count={stats.waiting}
+                        color="#f59e0b"
+                        active={statusFilter === 'waiting'}
+                        onClick={() => setStatusFilter('waiting')}
+                    />
+                    <StatCard
+                        icon={<CheckCircleIcon fontSize="large" />}
+                        title="ผ่าน/ครบถ้วน"
+                        count={stats.passed}
+                        color="#16a34a"
+                        active={statusFilter === 'passed'}
+                        onClick={() => setStatusFilter('passed')}
+                    />
+                    <StatCard
+                        icon={<CancelIcon fontSize="large" />}
+                        title="ไม่ผ่าน"
+                        count={stats.rejected}
+                        color="#ef4444"
+                        active={statusFilter === 'rejected'}
+                        onClick={() => setStatusFilter('rejected')}
+                    />
+                </Box>
 
                 <Tabs
                     value={tabValue}
@@ -458,7 +597,157 @@ export default function OfficeRegistration() {
                     ))}
                 </Tabs>
 
-                {!selectedFaculty ? (
+                {/* Control Bar */}
+                <Paper
+                    elevation={0}
+                    sx={{
+                        p: 2.5,
+                        mb: 4,
+                        borderRadius: 4,
+                        bgcolor: 'action.hover',
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        display: 'flex',
+                        flexDirection: { xs: 'column', md: 'row' },
+                        alignItems: { xs: 'stretch', md: 'center' },
+                        justifyContent: 'space-between',
+                        gap: 2
+                    }}
+                >
+                    <Box sx={{ display: 'flex', flexGrow: 1, gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
+                        <TextField
+                            size="small"
+                            placeholder="ค้นหารหัสนักศึกษา หรือชื่อ-นามสกุล..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            InputProps={{
+                                startAdornment: (
+                                    <InputAdornment position="start">
+                                        <SearchIcon fontSize="small" color="action" />
+                                    </InputAdornment>
+                                ),
+                                endAdornment: searchTerm && (
+                                    <InputAdornment position="end">
+                                        <IconButton size="small" onClick={() => setSearchTerm("")}>
+                                            <ClearIcon fontSize="small" />
+                                        </IconButton>
+                                    </InputAdornment>
+                                )
+                            }}
+                            sx={{ 
+                                flexGrow: 1, 
+                                minWidth: { sm: 250, md: 350 },
+                                bgcolor: 'background.paper',
+                                borderRadius: 2,
+                                '& .MuiOutlinedInput-root': {
+                                    borderRadius: 2
+                                }
+                            }}
+                        />
+
+                        <FormControl size="small" sx={{ minWidth: 180, bgcolor: 'background.paper', borderRadius: 2 }}>
+                            <InputLabel id="status-filter-label">สถานะตรวจสอบ</InputLabel>
+                            <Select
+                                labelId="status-filter-label"
+                                value={statusFilter}
+                                label="สถานะตรวจสอบ"
+                                onChange={(e) => setStatusFilter(e.target.value)}
+                                sx={{ borderRadius: 2 }}
+                            >
+                                <MenuItem value="all">ทั้งหมด</MenuItem>
+                                <MenuItem value="waiting">รอดำเนินการ</MenuItem>
+                                <MenuItem value="passed">ผ่าน/ครบถ้วน</MenuItem>
+                                <MenuItem value="rejected">ไม่ผ่าน</MenuItem>
+                            </Select>
+                        </FormControl>
+                    </Box>
+
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, justifyContent: { xs: 'space-between', md: 'flex-end' } }}>
+                        {selectedRequestIds.length > 0 && (
+                            <Badge 
+                                badgeContent={selectedRequestIds.length} 
+                                color="error"
+                                sx={{ 
+                                    '& .MuiBadge-badge': {
+                                        right: -3,
+                                        top: 3,
+                                        border: `2px solid #ffffff`,
+                                        padding: '0 4px',
+                                    }
+                                }}
+                            >
+                                <Chip 
+                                    label="เลือกอยู่" 
+                                    size="medium" 
+                                    onDelete={() => setSelectedRequestIds([])}
+                                    sx={{ 
+                                        fontWeight: 'bold', 
+                                        bgcolor: '#fee2e2', 
+                                        color: '#dc2626',
+                                        '& .MuiChip-deleteIcon': {
+                                            color: '#dc2626'
+                                        }
+                                    }} 
+                                />
+                            </Badge>
+                        )}
+                        {(searchTerm || statusFilter !== 'all') && (
+                            <Button 
+                                size="small" 
+                                color="error" 
+                                onClick={() => {
+                                    setSearchTerm("");
+                                    setStatusFilter("all");
+                                }}
+                                startIcon={<ClearIcon />}
+                                sx={{ fontWeight: 700 }}
+                            >
+                                ล้างตัวกรอง
+                            </Button>
+                        )}
+                    </Box>
+                </Paper>
+
+                {/* Conditional rendering based on filteredCount */}
+                {filteredCount === 0 ? (
+                    <Paper 
+                        elevation={0} 
+                        sx={{ 
+                            p: 8, 
+                            textAlign: 'center', 
+                            border: '2px dashed', 
+                            borderColor: 'divider', 
+                            borderRadius: 5,
+                            bgcolor: 'background.paper'
+                        }}
+                    >
+                        <Box sx={{ mb: 2, color: 'text.secondary', display: 'flex', justifyContent: 'center' }}>
+                            <PendingActionsIcon sx={{ fontSize: 60, opacity: 0.5, color: '#ea580c' }} />
+                        </Box>
+                        <Typography variant="h6" fontWeight="bold" color="text.primary" gutterBottom>
+                            ไม่พบข้อมูลคำร้องขอจบการศึกษา
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 3, maxWidth: 500, mx: 'auto' }}>
+                            ไม่มีคำร้องของนักศึกษาที่ตรงกับเงื่อนไขการค้นหา คณะ หรือสถานะการตรวจสอบที่คุณเลือกในขณะนี้
+                        </Typography>
+                        <Button 
+                            variant="contained"
+                            color="primary"
+                            onClick={() => {
+                                setSearchTerm("");
+                                setStatusFilter("all");
+                                setSelectedFaculty(null);
+                            }}
+                            sx={{ 
+                                borderRadius: 3,
+                                background: 'linear-gradient(135deg, #7c2d12 0%, #ea580c 100%)',
+                                color: 'white'
+                            }}
+                        >
+                            ล้างตัวกรองทั้งหมด
+                        </Button>
+                    </Paper>
+                ) : !selectedFaculty ? (
                     <Grid container spacing={3}>
                         {Object.keys(groupedData).map(fac => (
                             <Grid item xs={12} sm={6} md={4} key={fac}>
@@ -525,8 +814,12 @@ export default function OfficeRegistration() {
 
                         {groupedData[selectedFaculty] && Object.keys(groupedData[selectedFaculty]).map(branch => {
                             const branchStudents = groupedData[selectedFaculty][branch] || [];
-                            const isAllSelected = branchStudents.length > 0 && branchStudents.every(s => selectedRequestIds.includes(s.id));
-                            const isIndeterminate = branchStudents.some(s => selectedRequestIds.includes(s.id)) && !isAllSelected;
+                            const currentCheckType = checkTypes[tabValue].key;
+                            
+                            // Only include selectable students (not passed) for select all calculations
+                            const selectableBranchStudents = branchStudents.filter(s => s[currentCheckType]?.status !== 'passed');
+                            const isAllSelected = selectableBranchStudents.length > 0 && selectableBranchStudents.every(s => selectedRequestIds.includes(s.id));
+                            const isIndeterminate = selectableBranchStudents.some(s => selectedRequestIds.includes(s.id)) && !isAllSelected;
 
                             return (
                                 <Accordion key={branch} elevation={0} sx={{ border: '1px solid #e2e8f0', borderRadius: '12px !important', overflow: 'hidden', mb: 2 }}>
@@ -543,38 +836,50 @@ export default function OfficeRegistration() {
                                                                 indeterminate={isIndeterminate}
                                                                 checked={isAllSelected}
                                                                 onChange={(e) => handleSelectAllInBranch(branchStudents, e.target.checked)}
+                                                                disabled={selectableBranchStudents.length === 0}
                                                             />
                                                         </TableCell>
                                                         <TableCell sx={{ fontWeight: 'bold' }}>รหัสนักศึกษา</TableCell>
                                                         <TableCell sx={{ fontWeight: 'bold' }}>ชื่อ-นามสกุล</TableCell>
-                                                        {(checkTypes[tabValue].key === "checkFiles" || checkTypes[tabValue].key === "checkInternship") && (
+                                                        {(currentCheckType === "checkFiles" || currentCheckType === "checkInternship") && (
                                                             <TableCell align="center" sx={{ fontWeight: 'bold' }}>เอกสาร</TableCell>
                                                         )}
-                                                        <TableCell align="center" sx={{ fontWeight: 'bold' }}>สถานะ</TableCell>
+                                                        <TableCell align="center" sx={{ fontWeight: 'bold', width: 140, minWidth: 140 }}>สถานะ</TableCell>
                                                         <TableCell align="center" sx={{ fontWeight: 'bold' }}>วันที่ยื่น</TableCell>
                                                         <TableCell align="center" sx={{ fontWeight: 'bold' }}>ผ่าน &nbsp;&nbsp; ไม่ผ่าน</TableCell>
                                                     </TableRow>
                                                 </TableHead>
                                                 <TableBody>
                                                     {branchStudents.map(s => {
-                                                        const currentCheckType = checkTypes[tabValue].key;
                                                         const checkData = s[currentCheckType];
                                                         const isChecked = selectedRequestIds.includes(s.id);
+                                                        const isPassed = checkData.status === "passed";
 
                                                         return (
-                                                            <TableRow key={s.id} selected={isChecked}>
+                                                            <TableRow 
+                                                                key={s.id} 
+                                                                selected={isChecked}
+                                                                sx={{
+                                                                    transition: 'background-color 0.2s',
+                                                                    ...(isPassed ? { 
+                                                                        bgcolor: alpha('#16a34a', 0.04),
+                                                                        '&:hover': { bgcolor: alpha('#16a34a', 0.08) + ' !important' }
+                                                                    } : {})
+                                                                }}
+                                                            >
                                                                 <TableCell padding="checkbox">
                                                                     <Checkbox
                                                                         checked={isChecked}
+                                                                        disabled={isPassed}
                                                                         onChange={() => handleSelectRow(s.id)}
                                                                         onClick={(e) => e.stopPropagation()}
                                                                     />
                                                                 </TableCell>
-                                                                <TableCell>{s.studentId}</TableCell>
+                                                                <TableCell sx={{ fontWeight: isPassed ? 500 : 'normal' }}>{s.studentId}</TableCell>
                                                                 <TableCell>
                                                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                                                        <Avatar sx={{ width: 32, height: 32, fontSize: 14 }}>{s.name[0]}</Avatar>
-                                                                        <Typography variant="body2">{s.name}</Typography>
+                                                                        <Avatar sx={{ width: 32, height: 32, fontSize: 14, bgcolor: isPassed ? alpha('#16a34a', 0.2) : undefined, color: isPassed ? '#166534' : undefined }}>{s.name[0]}</Avatar>
+                                                                        <Typography variant="body2" sx={{ fontWeight: isPassed ? 600 : 'normal', color: isPassed ? '#166534' : 'text.primary' }}>{s.name}</Typography>
                                                                     </Box>
                                                                 </TableCell>
                                                                 {(currentCheckType === "checkFiles" || currentCheckType === "checkInternship") && (
@@ -592,16 +897,28 @@ export default function OfficeRegistration() {
                                                                             sx={{
                                                                                 textTransform: 'none',
                                                                                 minWidth: 96,
-                                                                                borderColor: 'primary.main',
-                                                                                '&:hover': { bgcolor: alpha('#064460', 0.08) }
+                                                                                borderColor: isPassed ? alpha('#16a34a', 0.5) : '#7c2d12',
+                                                                                color: isPassed ? '#166534' : '#7c2d12',
+                                                                                '&:hover': { bgcolor: alpha('#7c2d12', 0.08) }
                                                                             }}
                                                                         >
                                                                             {currentCheckType === "checkInternship" ? "ดูสลิป" : "ดูเอกสาร"}
                                                                         </Button>
                                                                     </TableCell>
                                                                 )}
-                                                                <TableCell align="center">
-                                                                    <Chip label={statusConfig[checkData.status].label} sx={{ bgcolor: statusConfig[checkData.status].bg, color: statusConfig[checkData.status].color, fontWeight: 700, borderRadius: 1, fontSize: '0.75rem' }} />
+                                                                <TableCell align="center" sx={{ width: 140, minWidth: 140 }}>
+                                                                    <Chip 
+                                                                        label={statusConfig[checkData.status].label} 
+                                                                        sx={{ 
+                                                                            bgcolor: statusConfig[checkData.status].bg, 
+                                                                            color: statusConfig[checkData.status].color, 
+                                                                            fontWeight: 700, 
+                                                                            borderRadius: 1.5, 
+                                                                            fontSize: '0.75rem',
+                                                                            width: 105,
+                                                                            justifyContent: 'center'
+                                                                        }} 
+                                                                    />
                                                                 </TableCell>
                                                                 <TableCell align="center">
                                                                     <Typography variant="body2" color="text.secondary">
@@ -615,8 +932,8 @@ export default function OfficeRegistration() {
                                                                         onChange={(e) => handleRadioChange(s, currentCheckType, e.target.value)}
                                                                         sx={{ justifyContent: 'center', gap: 4 }}
                                                                     >
-                                                                        <Radio value="passed" size="small" disabled={checkData.status === "passed"} sx={{ p: 0.5, '&.Mui-checked': { color: '#10b981' } }} />
-                                                                        <Radio value="rejected" size="small" disabled={checkData.status === "passed"} sx={{ p: 0.5, '&.Mui-checked': { color: '#ef4444' } }} />
+                                                                        <Radio value="passed" size="small" disabled={isPassed} sx={{ p: 0.5, '&.Mui-checked': { color: '#10b981' } }} />
+                                                                        <Radio value="rejected" size="small" disabled={isPassed} sx={{ p: 0.5, '&.Mui-checked': { color: '#ef4444' } }} />
                                                                     </RadioGroup>
                                                                 </TableCell>
                                                             </TableRow>
@@ -819,6 +1136,22 @@ export default function OfficeRegistration() {
                         <Button onClick={() => setPreviewDialogOpen(false)}>ปิด</Button>
                     </DialogActions>
                 </Dialog>
+
+                {/* Toast Notification (Snackbar) */}
+                <Snackbar
+                    open={snackbarOpen}
+                    autoHideDuration={4000}
+                    onClose={() => setSnackbarOpen(false)}
+                    anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                >
+                    <Alert 
+                        onClose={() => setSnackbarOpen(false)} 
+                        severity={snackbarSeverity} 
+                        sx={{ width: '100%', borderRadius: 2, fontWeight: 'bold' }}
+                    >
+                        {snackbarMessage}
+                    </Alert>
+                </Snackbar>
             </Box>
         </Box>
     );

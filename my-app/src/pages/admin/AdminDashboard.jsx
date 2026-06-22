@@ -183,16 +183,6 @@ export default function AdminDashboard({ users, setUsers, onRefresh }) {
       position: 'relative',
       overflow: 'hidden'
     }}>
-      <Box sx={{
-        position: 'absolute',
-        top: -10,
-        right: -10,
-        width: 100,
-        height: 100,
-        borderRadius: '50%',
-        bgcolor: alpha(color, 0.1),
-        zIndex: 0
-      }} />
       <CardContent sx={{ position: 'relative', zIndex: 1, p: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
           <Box sx={{

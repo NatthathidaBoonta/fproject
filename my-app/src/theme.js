@@ -1,9 +1,9 @@
 import { createTheme } from '@mui/material/styles';
 
-export const getAppTheme = (mode = 'light') => {
+export const getAppTheme = () => {
   return createTheme({
     palette: {
-      mode,
+      mode: 'light',
       primary: {
         main: '#064460', // Yale Blue
         light: '#0a5d83',
@@ -35,14 +35,14 @@ export const getAppTheme = (mode = 'light') => {
         contrastText: '#ffffff',
       },
       background: {
-        default: mode === 'light' ? '#f8fafc' : '#0f172a',
-        paper: mode === 'light' ? '#ffffff' : '#1e293b',
+        default: '#f8fafc',
+        paper: '#ffffff',
       },
       text: {
-        primary: mode === 'light' ? '#0f172a' : '#f8fafc',
-        secondary: mode === 'light' ? '#475569' : '#94a3b8',
+        primary: '#0f172a',
+        secondary: '#475569',
       },
-      divider: mode === 'light' ? '#e2e8f0' : '#334155',
+      divider: '#e2e8f0',
     },
     typography: {
       fontFamily: `"Noto Sans Thai", "Prompt", "Sarabun", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`,
@@ -75,9 +75,7 @@ export const getAppTheme = (mode = 'light') => {
             },
           },
           containedPrimary: {
-            background: mode === 'light' 
-              ? 'linear-gradient(135deg, #064460 0%, #095a80 100%)' 
-              : 'linear-gradient(135deg, #0a5d83 0%, #064460 100%)',
+            background: 'linear-gradient(135deg, #064460 0%, #095a80 100%)',
           },
         },
       },
@@ -85,12 +83,8 @@ export const getAppTheme = (mode = 'light') => {
         styleOverrides: {
           root: {
             borderRadius: 16,
-            boxShadow: mode === 'light' 
-              ? '0 10px 30px rgba(6, 68, 96, 0.04)' 
-              : '0 10px 30px rgba(0, 0, 0, 0.2)',
-            border: mode === 'light' 
-              ? '1px solid rgba(226, 232, 240, 0.8)' 
-              : '1px solid rgba(51, 65, 85, 0.8)',
+            boxShadow: '0 10px 30px rgba(6, 68, 96, 0.04)',
+            border: '1px solid rgba(226, 232, 240, 0.8)',
           },
         },
       },
@@ -105,7 +99,7 @@ export const getAppTheme = (mode = 'light') => {
         styleOverrides: {
           head: {
             fontWeight: 700,
-            backgroundColor: mode === 'light' ? '#f8fafc' : '#1e293b',
+            backgroundColor: '#f8fafc',
           },
         },
       },

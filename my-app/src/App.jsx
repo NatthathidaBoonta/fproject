@@ -22,8 +22,6 @@ import {
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import NotificationsIcon from '@mui/icons-material/Notifications';
-import LightModeIcon from '@mui/icons-material/LightMode';
-import DarkModeIcon from '@mui/icons-material/DarkMode';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { getUsers, getNotifications, markNotificationAsRead, markAllNotificationsAsRead } from "./services/api";
 import { getAppTheme } from "./theme";
@@ -53,18 +51,8 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const isLoginPage = location.pathname === '/';
 
-  // --- 1. State สำหรับธีมและ Dark Mode ---
-  const [mode, setMode] = useState(() => {
-    return localStorage.getItem('themeMode') || 'light';
-  });
-
-  const theme = useMemo(() => getAppTheme(mode), [mode]);
-
-  const toggleDarkMode = () => {
-    const newMode = mode === 'light' ? 'dark' : 'light';
-    setMode(newMode);
-    localStorage.setItem('themeMode', newMode);
-  };
+  // --- 1. State สำหรับธีม (ล็อกโหมดสว่างถาวร) ---
+  const theme = useMemo(() => getAppTheme('light'), []);
 
   // --- 2. State สำหรับโปรไฟล์ส่วนตัว ---
   const [myProfile, setMyProfile] = useState({
@@ -210,12 +198,7 @@ export default function App() {
                 ระบบคำร้องขอจบการศึกษา
               </Typography>
 
-              {/* Theme Toggle Button */}
-              <Tooltip title={mode === 'dark' ? "โหมดสว่าง" : "โหมดมืด"}>
-                <IconButton color="inherit" onClick={toggleDarkMode} sx={{ mr: 1.5 }}>
-                  {mode === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
-                </IconButton>
-              </Tooltip>
+
 
               {/* Notification Center Trigger */}
               {myProfile && (
