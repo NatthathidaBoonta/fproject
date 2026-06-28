@@ -1,103 +1,68 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  Typography,
-  Avatar,
-  Box,
-  Button,
-  Chip,
-  CircularProgress,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  Container,
-  Paper,
-  Divider,
+  Typography, Avatar, Box, Button, Chip, CircularProgress,
+  Dialog, DialogTitle, DialogContent, DialogActions,
+  TextField, Container, Paper, Divider, Alert, Tooltip,
 } from "@mui/material";
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import CancelIcon from '@mui/icons-material/Cancel';
-import DescriptionIcon from '@mui/icons-material/Description';
+import ArrowBackIcon          from "@mui/icons-material/ArrowBack";
+import CheckCircleIcon        from "@mui/icons-material/CheckCircle";
+import CancelIcon             from "@mui/icons-material/Cancel";
+import DescriptionIcon        from "@mui/icons-material/Description";
+import InboxIcon              from "@mui/icons-material/Inbox";
+import AssignmentTurnedInIcon from "@mui/icons-material/AssignmentTurnedIn";
+import TrackChangesIcon       from "@mui/icons-material/TrackChanges";
+import AccessTimeIcon         from "@mui/icons-material/AccessTime";
+import HourglassTopIcon       from "@mui/icons-material/HourglassTop";
 import { useParams, useNavigate } from "react-router-dom";
 import { API_BASE_URL, getRequestById, updateRequestStep } from "../../services/api";
+import { STEP_LABELS, statusConfig as stepStatusConfig } from "../../constants/stepConfig";
 
-const stepLabels = {
-  advisor: "ที่ปรึกษา",
-  grade_check: "เกรด",
-  file_check: "ตรวจสอบไฟล์",
-  tuition_check: "ค่าลงทะเบียนเรียน",
-  internship_fee_check: "ค่าออกฝึก",
-  library_check: "ห้องสมุด",
-  activity_general_check: "กิจกรรมกลาง",
-  activity_faculty_check: "กิจกรรมคณะ",
-  digital_exam_check: "สอบดิจิทัล",
-  language_center: "ศูนย์ภาษา",
-};
+const DIALOG = { NONE: "none", SUCCESS: "success", ERROR: "error", INFO: "info" };
 
-const workflowOrder = [
-  'file_check',
-  'tuition_check',
-  'grade_check',
-  'internship_fee_check',
-  'library_check',
-  'activity_general_check',
-  'activity_faculty_check',
-  'digital_exam_check',
-  'language_center',
-  'advisor',
+// ขั้นตอนทั้งหมดที่หน่วยงานจัดการหลังจากนักศึกษายื่น (ไม่รวม grade_check ที่เป็นของที่ปรึกษา)
+const DEPT_STEPS = [
+  "file_check", "tuition_check", "internship_fee_check", "library_check",
+  "activity_general_check", "activity_faculty_check", "digital_exam_check",
+  "language_center", "advisor", "registration", "activity_center",
 ];
 
-const statusLabel = {
-  waiting: "รอดำเนินการ",
-  in_progress: "กำลังดำเนินการ",
-  approved: "ผ่าน",
-  rejected: "ไม่ผ่าน",
-};
-
-const chipStyleByStatus = {
-  approved: { bgcolor: '#dcfce7', color: '#166534' },
-  rejected: { bgcolor: '#fee2e2', color: '#991b1b' },
-  in_progress: { bgcolor: '#dbeafe', color: '#1d4ed8' },
-  waiting: { bgcolor: '#fef9c3', color: '#854d0e' },
-};
-
-const getDocumentUrl = (document) => {
-  if (!document?.url) return '';
-  if (String(document.url).startsWith('http')) return document.url;
-  return `${API_BASE_URL}${document.url}`;
+const getDocumentUrl = (doc) => {
+  if (!doc?.url) return "";
+  return String(doc.url).startsWith("http") ? doc.url : `${API_BASE_URL}${doc.url}`;
 };
 
 const formatThaiDateTime = (value) => {
-  if (!value) return '-';
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) return '-';
-  return date.toLocaleString('th-TH', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
+  if (!value) return "-";
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return "-";
+  return d.toLocaleString("th-TH", {
+    year: "numeric", month: "short", day: "numeric",
+    hour: "2-digit", minute: "2-digit",
   });
 };
 
+const StepStatusIcon = ({ status }) => {
+  if (status === "approved")    return <CheckCircleIcon sx={{ fontSize: 18, color: "#16a34a" }} />;
+  if (status === "rejected")    return <CancelIcon       sx={{ fontSize: 18, color: "#dc2626" }} />;
+  if (status === "in_progress") return <HourglassTopIcon sx={{ fontSize: 18, color: "#3b82f6" }} />;
+  return <AccessTimeIcon sx={{ fontSize: 18, color: "#d97706" }} />;
+};
+
 export default function AdvisorDetail() {
-  const { id } = useParams();
-  const navigate = useNavigate();
-  const [requestData, setRequestData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { id }     = useParams();
+  const navigate   = useNavigate();
+
+  const [requestData, setRequestData]   = useState(null);
+  const [loading, setLoading]           = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [openRejectDialog, setOpenRejectDialog] = useState(false);
+  const [rejectOpen, setRejectOpen]     = useState(false);
   const [rejectReason, setRejectReason] = useState("");
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [dialogMessage, setDialogMessage] = useState("");
+  const [approveOpen, setApproveOpen]   = useState(false);
+  const [dialog, setDialog]             = useState({ open: false, type: DIALOG.NONE, message: "" });
 
   const currentUser = useMemo(() => {
-    try {
-      return JSON.parse(localStorage.getItem('user') || 'null');
-    } catch {
-      return null;
-    }
+    try { return JSON.parse(localStorage.getItem("user") || "null"); }
+    catch { return null; }
   }, []);
 
   const fetchRequest = async () => {
@@ -105,405 +70,515 @@ export default function AdvisorDetail() {
       const data = await getRequestById(id);
       setRequestData(data);
     } catch (error) {
-      console.error('Failed to fetch request detail:', error);
-      if (error?.response?.status === 404) {
-        setDialogMessage('ไม่พบข้อมูลคำร้องนี้ (อาจเป็นลิงก์เก่าหลังรีสตาร์ทระบบ)');
-      } else if (error?.response?.status === 403) {
-        setDialogMessage('ไม่มีสิทธิ์เข้าดูคำร้องนี้ กรุณาเข้าสู่ระบบใหม่');
-      } else {
-        setDialogMessage('ไม่สามารถโหลดข้อมูลคำร้องได้');
-      }
-      setDialogOpen(true);
+      const status = error?.response?.status;
+      const msg = status === 404 ? "ไม่พบข้อมูลคำร้องนี้"
+        : status === 403 ? "ไม่มีสิทธิ์เข้าดูคำร้องนี้"
+        : "ไม่สามารถโหลดข้อมูลได้";
+      setDialog({ open: true, type: DIALOG.ERROR, message: msg });
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchRequest();
-  }, [id]);
+  useEffect(() => { fetchRequest(); }, [id]);
 
-  const items = useMemo(() => {
-    const steps = requestData?.steps || {};
-    return workflowOrder.filter((stepKey) => stepLabels[stepKey]).map((stepKey) => ({
-      key: stepKey,
-      name: stepLabels[stepKey],
-      status: steps?.[stepKey]?.status || 'waiting',
-      comment: steps?.[stepKey]?.comment || '',
-      updatedAt: steps?.[stepKey]?.updatedAt || null,
-    }));
+  // สถานะที่ปรึกษา
+  const advisorStepStatus = requestData?.steps?.grade_check?.status || "waiting";
+  const advisorComment    = requestData?.steps?.grade_check?.comment || "";
+  const advisorUpdatedAt  = requestData?.steps?.grade_check?.updatedAt || null;
+  const isApproved        = advisorStepStatus === "approved";
+  const isRejected        = advisorStepStatus === "rejected";
+
+  // นักศึกษายื่นคำร้องแล้ว (status ไม่ใช่ Pending)
+  const hasSubmitted = requestData?.status && requestData.status !== "Pending";
+
+  // รายการสถานะขั้นตอนหน่วยงาน
+  const deptStepItems = useMemo(() => {
+    if (!requestData?.steps) return [];
+    return DEPT_STEPS
+      .filter((key) => STEP_LABELS[key])
+      .map((key) => ({
+        key,
+        label:     STEP_LABELS[key],
+        status:    requestData.steps[key]?.status    || "waiting",
+        comment:   requestData.steps[key]?.comment   || "",
+        updatedAt: requestData.steps[key]?.updatedAt || null,
+      }));
   }, [requestData]);
 
-  const generalDocuments = useMemo(() => {
-    const documents = Array.isArray(requestData?.documents) ? requestData.documents : [];
-    return documents.filter((document) => {
-      const type = String(document?.documentType || '').trim().toLowerCase();
-      return type === '' || type === 'general';
+  // สรุปผลการดำเนินการ
+  const stepSummary = useMemo(() => {
+    const total    = deptStepItems.length;
+    const approved = deptStepItems.filter((s) => s.status === "approved").length;
+    const rejected = deptStepItems.filter((s) => s.status === "rejected").length;
+    return { total, approved, rejected, pending: total - approved - rejected };
+  }, [deptStepItems]);
+
+  const generalDocs = useMemo(() => {
+    const docs = Array.isArray(requestData?.documents) ? requestData.documents : [];
+    return docs.filter((d) => {
+      const t = String(d?.documentType || "").trim().toLowerCase();
+      return t === "" || t === "general";
     });
   }, [requestData]);
 
-  const internshipReceiptDocuments = useMemo(() => {
-    const documents = Array.isArray(requestData?.documents) ? requestData.documents : [];
-    return documents.filter((document) =>
-      String(document?.documentType || '').trim().toLowerCase() === 'internship_receipt'
+  const internshipDocs = useMemo(() => {
+    const docs = Array.isArray(requestData?.documents) ? requestData.documents : [];
+    return docs.filter((d) =>
+      String(d?.documentType || "").trim().toLowerCase() === "internship_receipt"
     );
   }, [requestData]);
 
-  const updateAdvisorStep = async (status, comment = '') => {
-    const actorUserId = currentUser?.id;
-    if (!actorUserId) {
-      setDialogMessage('ไม่พบข้อมูลผู้ใช้ กรุณาเข้าสู่ระบบใหม่');
-      setDialogOpen(true);
-      return;
-    }
-    if (!['Advisor', 'Admin'].includes(String(currentUser?.role || ''))) {
-      setDialogMessage('บัญชีนี้ไม่มีสิทธิ์อัปเดตผลตรวจของอาจารย์ที่ปรึกษา');
-      setDialogOpen(true);
-      return;
-    }
+  const closeDialog = () => {
+    const shouldNavigate = dialog.type === DIALOG.SUCCESS || dialog.type === DIALOG.ERROR;
+    setDialog({ open: false, type: DIALOG.NONE, message: "" });
+    if (shouldNavigate) navigate("/advisor");
+  };
 
+  const handleApprove = async () => {
+    if (!currentUser?.id) {
+      setDialog({ open: true, type: DIALOG.ERROR, message: "ไม่พบข้อมูลผู้ใช้ กรุณาเข้าสู่ระบบใหม่" });
+      return;
+    }
     setIsSubmitting(true);
     try {
       await updateRequestStep(id, {
-        step: 'grade_check',
-        status,
-        comment,
-        userId: actorUserId,
+        step: "grade_check", status: "approved", comment: "", userId: currentUser.id,
       });
       await fetchRequest();
-      setDialogMessage(status === 'approved' ? 'อนุมัติสำเร็จ' : 'ปฏิเสธสำเร็จ');
-      setDialogOpen(true);
+      setDialog({ open: true, type: DIALOG.SUCCESS, message: `อนุมัติให้ ${requestData?.User?.name} ยื่นคำร้องขอจบการศึกษาได้แล้ว` });
     } catch (error) {
-      console.error('Failed to update advisor step:', error);
-      setDialogMessage('อัปเดตสถานะไม่สำเร็จ');
-      setDialogOpen(true);
+      setDialog({ open: true, type: DIALOG.ERROR, message: error?.response?.data?.message || "เกิดข้อผิดพลาด กรุณาลองใหม่" });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!rejectReason.trim()) {
+      setDialog({ open: true, type: DIALOG.INFO, message: "กรุณากรอกเหตุผลก่อนปฏิเสธ" });
+      return;
+    }
+    setRejectOpen(false);
+    setIsSubmitting(true);
+    try {
+      await updateRequestStep(id, {
+        step: "grade_check", status: "rejected", comment: rejectReason.trim(), userId: currentUser.id,
+      });
+      await fetchRequest();
+      setRejectReason("");
+      setDialog({ open: true, type: DIALOG.SUCCESS, message: "บันทึกการปฏิเสธเรียบร้อยแล้ว\nนักศึกษาจะได้รับแจ้งเตือนเพื่อดำเนินการแก้ไข" });
+    } catch (error) {
+      setDialog({ open: true, type: DIALOG.ERROR, message: error?.response?.data?.message || "เกิดข้อผิดพลาด กรุณาลองใหม่" });
     } finally {
       setIsSubmitting(false);
     }
   };
 
   if (loading) {
-    return <Box sx={{ p: 6, textAlign: 'center' }}><CircularProgress /></Box>;
+    return (
+      <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "60vh" }}>
+        <CircularProgress />
+      </Box>
+    );
   }
 
   if (!requestData) {
-    return <div>ไม่พบข้อมูลนักศึกษา</div>;
+    return (
+      <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "60vh", gap: 2 }}>
+        <InboxIcon sx={{ fontSize: 64, color: "#cbd5e1" }} />
+        <Typography variant="h6" color="#475569" fontWeight="600">ไม่พบข้อมูลคำร้อง</Typography>
+        <Button startIcon={<ArrowBackIcon />} onClick={() => navigate("/advisor")}>กลับหน้ารายชื่อ</Button>
+      </Box>
+    );
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#ffffff', pb: 10 }}>
-      {/* Header */}
-      <Box sx={{ py: 3, px: 4, borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: 2 }}>
+    <Box sx={{ minHeight: "100vh", bgcolor: "#fff", pb: 10 }}>
+
+      {/* Top Bar */}
+      <Box sx={{ py: 3, px: 4, borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: 2 }}>
         <Button
-          onClick={() => navigate('/advisor')}
           startIcon={<ArrowBackIcon />}
-          sx={{ color: '#64748b', textTransform: 'none', '&:hover': { bgcolor: '#f1f5f9' } }}
+          onClick={() => navigate("/advisor")}
+          sx={{ color: "#64748b", textTransform: "none", "&:hover": { bgcolor: "#f1f5f9" } }}
         >
-          กลับหน้าแดชบอร์ด
+          กลับหน้ารายชื่อ
         </Button>
         <Typography variant="h6" fontWeight="bold" color="#334155">
-          รายละเอียดคำร้อง
+          ตรวจสอบคำร้องขอจบการศึกษา
         </Typography>
       </Box>
 
       <Container maxWidth="lg" sx={{ mt: 5 }}>
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 350px' }, gap: 4 }}>
+        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 320px" }, gap: 4 }}>
 
-          {/* Main Content: Checklist */}
-          <Box>
-            <Paper elevation={0} sx={{ p: 4, borderRadius: 4, border: '1px solid #e2e8f0', mb: 4 }}>
-              <Typography variant="h6" fontWeight="bold" sx={{ mb: 3, color: '#1e293b' }}>
-                รายการตรวจสอบ
+          {/* ── Main Column ── */}
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+
+            {/* Alert: สถานะการอนุมัติที่ปรึกษา */}
+            {(isApproved || isRejected) && (
+              <Alert
+                severity={isApproved ? "success" : "error"}
+                icon={isApproved ? <CheckCircleIcon /> : <CancelIcon />}
+                sx={{ borderRadius: 3, fontWeight: 600 }}
+              >
+                {isApproved
+                  ? `อนุมัติแล้วเมื่อ ${formatThaiDateTime(advisorUpdatedAt)} — นักศึกษาสามารถยื่นคำร้องได้แล้ว`
+                  : `ปฏิเสธเมื่อ ${formatThaiDateTime(advisorUpdatedAt)}${advisorComment ? ` — ${advisorComment}` : ""}`}
+              </Alert>
+            )}
+
+            {/* เอกสารที่นักศึกษาอัปโหลด */}
+            <Paper elevation={0} sx={{ p: 4, borderRadius: 4, border: "1px solid #e2e8f0" }}>
+              <Typography variant="h6" fontWeight="bold" color="#1e293b" sx={{ mb: 3 }}>
+                เอกสารที่นักศึกษาอัปโหลด
               </Typography>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                {items.map((item, index) => (
-                  <Box key={index} sx={{
-                    p: 2,
-                    borderRadius: 3,
-                    bg: '#fff',
-                    border: '1px solid #f1f5f9',
-                    display: 'grid',
-                    gap: 1
-                  }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2 }}>
-                      <Typography sx={{ color: '#334155', fontWeight: 500 }}>{item.name}</Typography>
-                      <Chip
-                        label={statusLabel[item.status] || statusLabel.waiting}
-                        size="small"
-                        sx={{
-                          ...(chipStyleByStatus[item.status] || chipStyleByStatus.waiting),
-                          fontWeight: 700,
-                          borderRadius: 1
-                        }}
-                      />
-                    </Box>
-                    <Typography variant="caption" color="#64748b">
-                      อัปเดตล่าสุด: {formatThaiDateTime(item.updatedAt)}
-                    </Typography>
-                    {item.comment ? (
-                      <Typography variant="body2" sx={{ color: '#b91c1c', fontWeight: 500 }}>
-                        หมายเหตุ: {item.comment}
+
+              {generalDocs.length === 0 && internshipDocs.length === 0 ? (
+                <Box sx={{ textAlign: "center", py: 4, color: "#94a3b8" }}>
+                  <DescriptionIcon sx={{ fontSize: 48, mb: 1 }} />
+                  <Typography variant="body2">ยังไม่มีเอกสารที่อัปโหลด</Typography>
+                </Box>
+              ) : (
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                  {[
+                    { label: "เอกสารขอจบการศึกษา", docs: generalDocs,     btnLabel: "ดูเอกสาร" },
+                    { label: "สลิปค่าออกฝึก",       docs: internshipDocs, btnLabel: "ดูสลิป"    },
+                  ].map(({ label, docs, btnLabel }) => (
+                    <Box key={label}>
+                      <Typography variant="subtitle2" fontWeight="700" color="#334155" sx={{ mb: 1.5 }}>
+                        {label}
+                        <Chip
+                          label={docs.length > 0 ? `${docs.length} ไฟล์` : "ยังไม่มี"}
+                          size="small"
+                          sx={{
+                            ml: 1.5, height: 20, fontSize: "0.7rem", fontWeight: 700,
+                            bgcolor: docs.length > 0 ? "#dcfce7" : "#f1f5f9",
+                            color:   docs.length > 0 ? "#166534" : "#64748b",
+                          }}
+                        />
                       </Typography>
-                    ) : null}
+                      {docs.length > 0 ? (
+                        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                          {[...docs].reverse().map((doc) => (
+                            <Box
+                              key={doc.id || doc.fileName}
+                              sx={{
+                                display: "flex", justifyContent: "space-between", alignItems: "center",
+                                flexWrap: "wrap", gap: 1, p: 1.5,
+                                border: "1px solid #e2e8f0", borderRadius: 2, bgcolor: "#f8fafc",
+                              }}
+                            >
+                              <Box sx={{ minWidth: 0 }}>
+                                <Typography sx={{ color: "#0f172a", fontWeight: 600 }} noWrap>
+                                  {doc.originalName || label}
+                                </Typography>
+                                <Typography variant="caption" color="#64748b">
+                                  อัปโหลดเมื่อ: {formatThaiDateTime(doc.uploadedAt)}
+                                </Typography>
+                              </Box>
+                              <Button
+                                component="a"
+                                href={getDocumentUrl(doc)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                startIcon={<DescriptionIcon fontSize="small" />}
+                                size="small"
+                                sx={{ textTransform: "none", whiteSpace: "nowrap" }}
+                              >
+                                {btnLabel}
+                              </Button>
+                            </Box>
+                          ))}
+                        </Box>
+                      ) : (
+                        <Typography variant="body2" color="#94a3b8" sx={{ pl: 1 }}>
+                          นักศึกษายังไม่ได้อัปโหลด{label}
+                        </Typography>
+                      )}
+                    </Box>
+                  ))}
+                </Box>
+              )}
+            </Paper>
+
+            {/* ── ติดตามสถานะการดำเนินการ (read-only) ── */}
+            <Paper elevation={0} sx={{ p: 4, borderRadius: 4, border: "1px solid #e2e8f0" }}>
+              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1, flexWrap: "wrap", gap: 1 }}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <TrackChangesIcon sx={{ color: "#3b82f6" }} />
+                  <Typography variant="h6" fontWeight="bold" color="#1e293b">
+                    ติดตามสถานะการดำเนินการ
+                  </Typography>
+                </Box>
+                {hasSubmitted && (
+                  <Box sx={{ display: "flex", gap: 1 }}>
+                    <Chip label={`ผ่านแล้ว ${stepSummary.approved}`}  size="small" sx={{ bgcolor: "#dcfce7", color: "#166534", fontWeight: 700 }} />
+                    {stepSummary.rejected > 0 && (
+                      <Chip label={`ไม่ผ่าน ${stepSummary.rejected}`} size="small" sx={{ bgcolor: "#fee2e2", color: "#991b1b", fontWeight: 700 }} />
+                    )}
+                    <Chip label={`รอ ${stepSummary.pending}`}          size="small" sx={{ bgcolor: "#fef9c3", color: "#854d0e", fontWeight: 700 }} />
                   </Box>
-                ))}
+                )}
               </Box>
-            </Paper>
-
-            <Paper elevation={0} sx={{ p: 4, borderRadius: 4, border: '1px solid #e2e8f0', mb: 4 }}>
-              <Typography variant="h6" fontWeight="bold" sx={{ mb: 2, color: '#1e293b' }}>
-                ไฟล์ที่นักศึกษาอัปโหลด
+              <Typography variant="caption" color="#94a3b8" sx={{ mb: 3, display: "block" }}>
+                ดูได้เฉพาะ ไม่สามารถแก้ไขได้ — หน่วยงานแต่ละแห่งจะอัปเดตสถานะเอง
               </Typography>
-              <Box sx={{ display: 'grid', gap: 2 }}>
-                <Box sx={{ border: '1px solid #e2e8f0', borderRadius: 3, p: 2, bgcolor: '#f8fafc' }}>
-                  <Typography variant="subtitle2" sx={{ mb: 1.5, color: '#334155', fontWeight: 700 }}>
-                    ดูสลิปค่าออกฝึก
-                  </Typography>
-                  {internshipReceiptDocuments.length > 0 ? (
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                      {[...internshipReceiptDocuments].reverse().map((doc) => (
-                        <Box
-                          key={doc.id || doc.fileName}
-                          sx={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            flexWrap: 'wrap',
-                            gap: 1,
-                            p: 1.5,
-                            border: '1px solid #e2e8f0',
-                            borderRadius: 2,
-                            bgcolor: '#ffffff'
-                          }}
-                        >
-                          <Box sx={{ minWidth: 0 }}>
-                            <Typography sx={{ color: '#0f172a', fontWeight: 600 }} noWrap>
-                              {doc.originalName || 'สลิปค่าออกฝึก'}
-                            </Typography>
-                            <Typography variant="caption" color="#64748b">
-                              อัปโหลดเมื่อ: {formatThaiDateTime(doc.uploadedAt)}
-                            </Typography>
-                          </Box>
-                          <Button
-                            component="a"
-                            href={getDocumentUrl(doc)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            startIcon={<DescriptionIcon fontSize="small" />}
-                            sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
-                          >
-                            ดูสลิป
-                          </Button>
-                        </Box>
-                      ))}
-                    </Box>
-                  ) : (
-                    <Typography variant="body2" color="#64748b">ยังไม่มีสลิปค่าออกฝึก</Typography>
-                  )}
-                </Box>
 
-                <Box sx={{ border: '1px solid #e2e8f0', borderRadius: 3, p: 2, bgcolor: '#f8fafc' }}>
-                  <Typography variant="subtitle2" sx={{ mb: 1.5, color: '#334155', fontWeight: 700 }}>
-                    ดูเอกสารทั่วไป
-                  </Typography>
-                  {generalDocuments.length > 0 ? (
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                      {[...generalDocuments].reverse().map((doc) => (
-                        <Box
-                          key={doc.id || doc.fileName}
-                          sx={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            flexWrap: 'wrap',
-                            gap: 1,
-                            p: 1.5,
-                            border: '1px solid #e2e8f0',
-                            borderRadius: 2,
-                            bgcolor: '#ffffff'
-                          }}
-                        >
-                          <Box sx={{ minWidth: 0 }}>
-                            <Typography sx={{ color: '#0f172a', fontWeight: 600 }} noWrap>
-                              {doc.originalName || 'เอกสารทั่วไป'}
-                            </Typography>
-                            <Typography variant="caption" color="#64748b">
-                              อัปโหลดเมื่อ: {formatThaiDateTime(doc.uploadedAt)}
+              {!hasSubmitted ? (
+                <Box sx={{ textAlign: "center", py: 4, color: "#94a3b8" }}>
+                  <AccessTimeIcon sx={{ fontSize: 48, mb: 1 }} />
+                  <Typography variant="body2" fontWeight="500">นักศึกษายังไม่ได้ยื่นคำร้อง</Typography>
+                  <Typography variant="caption">สถานะรายขั้นตอนจะแสดงหลังจากนักศึกษายื่นคำร้องแล้ว</Typography>
+                </Box>
+              ) : (
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+                  {deptStepItems.map((item) => {
+                    const cfg = stepStatusConfig[item.status] || stepStatusConfig.waiting;
+                    const hasIssue = item.status === "rejected" && item.comment;
+                    return (
+                      <Box
+                        key={item.key}
+                        sx={{
+                          p: 2, borderRadius: 2.5,
+                          border: hasIssue ? "1px solid #fca5a5" : "1px solid #f1f5f9",
+                          bgcolor: hasIssue ? "#fff7f7" : "#fafafa",
+                          display: "flex", flexDirection: "column", gap: 0.5,
+                        }}
+                      >
+                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                            <StepStatusIcon status={item.status} />
+                            <Typography variant="body2" fontWeight={hasIssue ? 700 : 500} color="#334155">
+                              {item.label}
                             </Typography>
                           </Box>
-                          <Button
-                            component="a"
-                            href={getDocumentUrl(doc)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            startIcon={<DescriptionIcon fontSize="small" />}
-                            sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
-                          >
-                            ดูเอกสาร
-                          </Button>
+                          <Chip
+                            label={cfg.label}
+                            size="small"
+                            sx={{ bgcolor: cfg.bg, color: cfg.text, fontWeight: 700, borderRadius: 1, fontSize: "0.72rem" }}
+                          />
                         </Box>
-                      ))}
-                    </Box>
-                  ) : (
-                    <Typography variant="body2" color="#64748b">ยังไม่มีเอกสารทั่วไป</Typography>
-                  )}
+                        {item.updatedAt && item.status !== "waiting" && (
+                          <Typography variant="caption" color="#94a3b8" sx={{ pl: 3.5 }}>
+                            อัปเดต: {formatThaiDateTime(item.updatedAt)}
+                          </Typography>
+                        )}
+                        {hasIssue && (
+                          <Box sx={{ pl: 3.5, mt: 0.25 }}>
+                            <Typography variant="caption" sx={{ color: "#b91c1c", fontWeight: 600 }}>
+                              หมายเหตุ: {item.comment}
+                            </Typography>
+                          </Box>
+                        )}
+                      </Box>
+                    );
+                  })}
                 </Box>
-              </Box>
+              )}
             </Paper>
 
-            {/* Advisor Action Section */}
-            <Paper elevation={0} sx={{ p: 4, borderRadius: 4, bgcolor: '#f8fafc', border: '1px dashed #cbd5e1' }}>
-              <Typography variant="subtitle1" fontWeight="bold" gutterBottom>ส่วนสำหรับอาจารย์ที่ปรึกษา</Typography>
-              <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
-                <Button
-                  variant="contained"
-                  onClick={() => updateAdvisorStep('approved')}
-                  disabled={isSubmitting}
-                  disableElevation
-                  startIcon={<CheckCircleIcon />}
-                  sx={{ bgcolor: '#10b981', '&:hover': { bgcolor: '#059669' }, borderRadius: 2, px: 3 }}
-                >
-                  อนุมัติคำร้อง
-                </Button>
-                <Button
-                  variant="outlined"
-                  color="error"
-                  disabled={isSubmitting}
-                  onClick={() => setOpenRejectDialog(true)}
-                  startIcon={<CancelIcon />}
-                  sx={{ borderRadius: 2, px: 3, borderColor: '#ef4444', color: '#ef4444' }}
-                >
-                  ปฏิเสธ / ส่งแก้ไข
-                </Button>
+            {/* ── การอนุมัติของที่ปรึกษา ── */}
+            <Paper
+              elevation={0}
+              sx={{
+                p: 4, borderRadius: 4,
+                bgcolor: isApproved ? "#f0fdf4" : "#f8fafc",
+                border: isApproved ? "1px solid #bbf7d0" : "1px dashed #cbd5e1",
+              }}
+            >
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 1.5 }}>
+                <AssignmentTurnedInIcon sx={{ color: isApproved ? "#15803d" : "#64748b" }} />
+                <Typography variant="subtitle1" fontWeight="bold" color={isApproved ? "#15803d" : "text.primary"}>
+                  การอนุมัติของที่ปรึกษา
+                </Typography>
               </Box>
+
+              {isApproved ? (
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <CheckCircleIcon sx={{ color: "#15803d" }} />
+                  <Typography variant="body2" color="#15803d" fontWeight="600">
+                    ได้อนุมัติให้นักศึกษายื่นคำร้องขอจบการศึกษาแล้ว
+                  </Typography>
+                </Box>
+              ) : (
+                <>
+                  <Typography variant="body2" color="#64748b" sx={{ mb: 3 }}>
+                    กรุณาตรวจสอบเอกสารของนักศึกษาด้านบน แล้วอนุมัติหรือปฏิเสธเพื่อให้นักศึกษาทราบผล
+                  </Typography>
+                  <Box sx={{ display: "flex", gap: 2 }}>
+                    <Button
+                      variant="contained"
+                      onClick={() => setApproveOpen(true)}
+                      disabled={isSubmitting}
+                      disableElevation
+                      startIcon={<CheckCircleIcon />}
+                      sx={{ bgcolor: "#10b981", "&:hover": { bgcolor: "#059669" }, borderRadius: 2, px: 4, py: 1.2 }}
+                    >
+                      อนุมัติให้ยื่นคำร้อง
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      color="error"
+                      disabled={isSubmitting}
+                      onClick={() => setRejectOpen(true)}
+                      startIcon={<CancelIcon />}
+                      sx={{ borderRadius: 2, px: 3, py: 1.2 }}
+                    >
+                      ยังไม่อนุมัติ / แจ้งแก้ไข
+                    </Button>
+                  </Box>
+                </>
+              )}
             </Paper>
           </Box>
 
-          {/* Sidebar: Student Info */}
+          {/* ── Sidebar ── */}
           <Box>
-            <Paper elevation={0} sx={{ p: 3, borderRadius: 4, border: '1px solid #e2e8f0', bgcolor: 'white', position: 'sticky', top: 20 }}>
-              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 3 }}>
-                <Avatar sx={{ width: 80, height: 80, mb: 2, bgcolor: '#e0f7fa', color: '#064460', fontSize: 32 }}>
-                  {(requestData.User?.name || '?').charAt(0)}
+            <Paper elevation={0} sx={{ p: 3, borderRadius: 4, border: "1px solid #e2e8f0", position: "sticky", top: 20 }}>
+              <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", mb: 3 }}>
+                <Avatar sx={{ width: 80, height: 80, mb: 2, bgcolor: "#e0f7fa", color: "#064460", fontSize: 32 }}>
+                  {(requestData.User?.name || "?").charAt(0)}
                 </Avatar>
-                <Typography variant="h6" fontWeight="bold" color="#1e293b">{requestData.User?.name || '-'}</Typography>
-                <Typography variant="body2" color="#64748b">{requestData.studentId}</Typography>
+                <Typography variant="h6" fontWeight="bold" color="#1e293b" align="center">
+                  {requestData.User?.name || "-"}
+                </Typography>
+                <Typography variant="body2" color="#64748b" sx={{ fontFamily: "monospace" }}>
+                  {requestData.studentId}
+                </Typography>
+                <Chip
+                  label={isApproved ? "อนุมัติแล้ว" : isRejected ? "ปฏิเสธ" : "รอการอนุมัติ"}
+                  size="small"
+                  sx={{
+                    mt: 1.5, fontWeight: 700, borderRadius: 2,
+                    bgcolor: isApproved ? "#dcfce7" : isRejected ? "#fee2e2" : "#fef9c3",
+                    color:   isApproved ? "#166534" : isRejected ? "#991b1b" : "#854d0e",
+                  }}
+                />
               </Box>
+
               <Divider sx={{ my: 2 }} />
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <Box display="flex" justifyContent="space-between">
-                  <Typography variant="body2" color="#64748b">ประเภท</Typography>
-                  <Typography variant="body2" fontWeight="600" color="#334155">ปกติ</Typography>
+
+              {[
+                { label: "คณะ",           value: requestData.User?.faculty || "-" },
+                { label: "สาขา",          value: requestData.User?.branch  || "-" },
+                { label: "ปีการศึกษา",   value: requestData.academicYear  || "-" },
+                { label: "ภาคเรียน",     value: requestData.semester      || "-" },
+                { label: "สถานะคำร้อง",  value: requestData.status        || "-" },
+                { label: "วันที่สร้าง",  value: formatThaiDateTime(requestData.createdAt) },
+              ].map(({ label, value }) => (
+                <Box key={label} sx={{ display: "flex", justifyContent: "space-between", mb: 1.5, gap: 1 }}>
+                  <Typography variant="body2" color="#64748b" sx={{ flexShrink: 0 }}>{label}</Typography>
+                  <Typography variant="body2" fontWeight="600" color="#334155" sx={{ textAlign: "right" }}>
+                    {value}
+                  </Typography>
                 </Box>
-                <Box display="flex" justifyContent="space-between">
-                  <Typography variant="body2" color="#64748b">สถานะคำร้อง</Typography>
-                  <Typography variant="body2" fontWeight="600" color="#334155">{requestData.status}</Typography>
-                </Box>
-                <Box display="flex" justifyContent="space-between">
-                  <Typography variant="body2" color="#64748b">ปีการศึกษา</Typography>
-                  <Typography variant="body2" fontWeight="600" color="#334155">{requestData.academicYear || '-'}</Typography>
-                </Box>
-                <Box display="flex" justifyContent="space-between">
-                  <Typography variant="body2" color="#64748b">ภาคเรียน</Typography>
-                  <Typography variant="body2" fontWeight="600" color="#334155">{requestData.semester || '-'}</Typography>
-                </Box>
-                <Box display="flex" justifyContent="space-between">
-                  <Typography variant="body2" color="#64748b">คณะ</Typography>
-                  <Typography variant="body2" fontWeight="600" color="#334155">{requestData.User?.faculty || '-'}</Typography>
-                </Box>
-                <Box display="flex" justifyContent="space-between">
-                  <Typography variant="body2" color="#64748b">สาขา</Typography>
-                  <Typography variant="body2" fontWeight="600" color="#334155">{requestData.User?.branch || '-'}</Typography>
-                </Box>
-                <Box display="flex" justifyContent="space-between">
-                  <Typography variant="body2" color="#64748b">วันที่ยื่น</Typography>
-                  <Typography variant="body2" fontWeight="600" color="#334155">{formatThaiDateTime(requestData.createdAt)}</Typography>
-                </Box>
-              </Box>
+              ))}
+
+              {/* Progress Bar */}
+              {hasSubmitted && (
+                <>
+                  <Divider sx={{ my: 2 }} />
+                  <Typography variant="caption" color="#64748b" fontWeight="600" sx={{ mb: 1, display: "block" }}>
+                    ความคืบหน้า ({stepSummary.approved}/{stepSummary.total} ขั้นตอน)
+                  </Typography>
+                  <Box sx={{ height: 8, borderRadius: 4, bgcolor: "#f1f5f9", overflow: "hidden" }}>
+                    <Box
+                      sx={{
+                        height: "100%", borderRadius: 4,
+                        width: `${stepSummary.total > 0 ? (stepSummary.approved / stepSummary.total) * 100 : 0}%`,
+                        bgcolor: stepSummary.rejected > 0 ? "#ef4444" : "#10b981",
+                        transition: "width 0.5s ease",
+                      }}
+                    />
+                  </Box>
+                </>
+              )}
             </Paper>
           </Box>
 
         </Box>
       </Container>
 
-      {/* Dialog สำหรับใส่หมายเหตุเมื่อปฏิเสธ */}
-      <Dialog open={openRejectDialog} onClose={() => setOpenRejectDialog(false)} fullWidth maxWidth="sm">
-        <DialogTitle sx={{ fontWeight: 'bold' }}>ปฏิเสธการอนุมัติ</DialogTitle>
+      {/* Confirm Approve Dialog */}
+      <Dialog open={approveOpen} onClose={() => setApproveOpen(false)} fullWidth maxWidth="xs">
+        <DialogTitle sx={{ fontWeight: "bold" }}>ยืนยันการอนุมัติ</DialogTitle>
         <DialogContent>
-          <TextField
-            autoFocus
-            margin="dense"
-            label="หมายเหตุ (บังคับ)"
-            fullWidth
-            multiline
-            rows={4}
-            value={rejectReason}
-            onChange={(e) => setRejectReason(e.target.value)}
-            placeholder="กรุณาระบุเหตุผลที่ปฏิเสธ..."
-            variant="outlined"
-          />
+          <Typography variant="body2" color="text.secondary">
+            คุณต้องการ <strong>อนุมัติ</strong> ให้{" "}
+            <strong>{requestData?.User?.name}</strong>{" "}
+            ยื่นคำร้องขอจบการศึกษาได้ใช่หรือไม่?
+          </Typography>
         </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
-          <Button onClick={() => setOpenRejectDialog(false)} sx={{ color: '#64748b' }}>ยกเลิก</Button>
+        <DialogActions sx={{ p: 2, gap: 1 }}>
+          <Button onClick={() => setApproveOpen(false)} sx={{ color: "#64748b" }}>ยกเลิก</Button>
           <Button
-            onClick={() => {
-              if (!rejectReason.trim()) {
-                setDialogMessage("กรุณากรอกหมายเหตุ");
-                setDialogOpen(true);
-                return;
-              }
-              setOpenRejectDialog(false);
-              updateAdvisorStep('rejected', rejectReason.trim());
-            }}
-            variant="contained"
-            color="error"
-            disableElevation
-            disabled={isSubmitting}
+            variant="contained" disableElevation disabled={isSubmitting}
+            startIcon={<CheckCircleIcon />}
+            onClick={() => { setApproveOpen(false); handleApprove(); }}
+            sx={{ bgcolor: "#10b981", "&:hover": { bgcolor: "#059669" } }}
           >
-            ยืนยันปฏิเสธ
+            ยืนยันอนุมัติ
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Generic Message Dialog */}
-      <Dialog
-        open={dialogOpen}
-        onClose={() => {
-          setDialogOpen(false);
-          if (dialogMessage.includes("สำเร็จ") || dialogMessage.includes("ไม่พบข้อมูลคำร้อง") || dialogMessage.includes("ไม่มีสิทธิ์")) {
-            navigate("/advisor");
-          }
-        }}
-        fullWidth
-        maxWidth="xs"
-      >
-        <Box sx={{ p: 4, textAlign: 'center' }}>
-          <Typography variant="h6" fontWeight="bold" sx={{ mb: 2, color: '#1e293b' }}>
-            แจ้งเตือน
+      {/* Reject Dialog */}
+      <Dialog open={rejectOpen} onClose={() => setRejectOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle sx={{ fontWeight: "bold" }}>ยังไม่อนุมัติ / แจ้งแก้ไข</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            ระบุเหตุผลหรือสิ่งที่นักศึกษาต้องแก้ไข เพื่อให้นักศึกษาดำเนินการให้ครบถ้วนก่อนยื่นคำร้อง
           </Typography>
-          <Typography color="text.secondary" sx={{ mb: 3, whiteSpace: 'pre-line' }}>
-            {dialogMessage}
+          <TextField
+            autoFocus fullWidth multiline rows={4}
+            label="เหตุผล / สิ่งที่ต้องแก้ไข (บังคับ)"
+            value={rejectReason}
+            onChange={(e) => setRejectReason(e.target.value)}
+            placeholder="เช่น ยังขาดหลักฐานการชำระค่าลงทะเบียน, ผลสอบภาษาอังกฤษยังไม่ผ่านเกณฑ์..."
+            variant="outlined"
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 2, gap: 1 }}>
+          <Button onClick={() => setRejectOpen(false)} sx={{ color: "#64748b" }}>ยกเลิก</Button>
+          <Button
+            variant="contained" color="error" disableElevation
+            disabled={isSubmitting || !rejectReason.trim()}
+            onClick={handleReject}
+          >
+            ยืนยัน
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Result Dialog */}
+      <Dialog open={dialog.open} onClose={closeDialog} fullWidth maxWidth="xs">
+        <Box sx={{ p: 4, textAlign: "center" }}>
+          {dialog.type === DIALOG.SUCCESS && <CheckCircleIcon sx={{ fontSize: 52, color: "#10b981", mb: 1 }} />}
+          {dialog.type === DIALOG.ERROR   && <CancelIcon       sx={{ fontSize: 52, color: "#ef4444", mb: 1 }} />}
+          <Typography variant="h6" fontWeight="bold" sx={{ mb: 1.5, color: "#1e293b" }}>
+            {dialog.type === DIALOG.SUCCESS ? "สำเร็จ"
+              : dialog.type === DIALOG.ERROR ? "เกิดข้อผิดพลาด"
+              : "แจ้งเตือน"}
+          </Typography>
+          <Typography color="text.secondary" sx={{ mb: 3, whiteSpace: "pre-line" }}>
+            {dialog.message}
           </Typography>
           <Button
-            fullWidth
-            variant="contained"
-            onClick={() => {
-              setDialogOpen(false);
-              if (dialogMessage.includes("สำเร็จ")) {
-                navigate("/advisor");
-              }
-            }}
+            fullWidth variant="contained" disableElevation onClick={closeDialog}
             sx={{
-              bgcolor: '#064460',
-              color: 'white',
-              borderRadius: 2,
-              '&:hover': { bgcolor: '#04364e' }
+              borderRadius: 2, fontWeight: 700,
+              bgcolor: dialog.type === DIALOG.SUCCESS ? "#10b981"
+                : dialog.type === DIALOG.ERROR ? "#ef4444"
+                : "#3b82f6",
             }}
           >
             ตกลง
           </Button>
         </Box>
       </Dialog>
-    </Box >
+
+    </Box>
   );
 }

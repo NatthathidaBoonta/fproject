@@ -315,19 +315,15 @@ export default function StudentScreenUI() {
         });
       });
 
-      const mappedHistory = sortedRequests.map((request, index) => {
-        const rejectedStep = request.status === "Rejected"
-          ? Object.values(request.steps || {}).find((step) => step.status === "rejected")
-          : null;
-
-        return {
+      // แสดงเฉพาะคำร้องที่ยื่นแล้ว (ไม่ใช่ Pending = draft ที่ยังไม่ได้ยื่น)
+      const mappedHistory = sortedRequests
+        .filter((r) => r.status !== "Pending")
+        .map((request, index) => ({
           id: request.id || index + 1,
-          date: formatThaiDateTime(request.createdAt),
+          date: formatThaiDateTime(request.submittedAt || request.createdAt),
           status: requestStatusToHistoryStatus[request.status] || "waiting",
-          rejectedDate: rejectedStep?.updatedAt ? formatThaiDateTime(rejectedStep.updatedAt) : null,
-          remark: rejectedStep?.comment || null,
-        };
-      });
+          originalRequest: request,
+        }));
 
       setSubmissionHistory(mappedHistory);
     } catch (error) {
@@ -421,6 +417,24 @@ export default function StudentScreenUI() {
       return;
     }
 
+    if (!isGeneralUploaded) {
+      setDialogMessage("กรุณาอัปโหลดเอกสารขอจบการศึกษาก่อนยื่นคำร้อง");
+      setDialogOpen(true);
+      return;
+    }
+
+    if (!isInternshipUploaded) {
+      setDialogMessage("กรุณาอัปโหลดสลิปค่าออกฝึกก่อนยื่นคำร้อง");
+      setDialogOpen(true);
+      return;
+    }
+
+    if (!isAdvisorApproved) {
+      setDialogMessage("อาจารย์ที่ปรึกษายังไม่ได้อนุมัติ\nกรุณารออาจารย์ที่ปรึกษาตรวจสอบและอนุมัติก่อนยื่นคำร้อง");
+      setDialogOpen(true);
+      return;
+    }
+
     try {
       let requestId = currentRequest?.id;
 
@@ -461,7 +475,21 @@ export default function StudentScreenUI() {
       setDialogOpen(true);
       return;
     }
-
+    if (!isGeneralUploaded) {
+      setDialogMessage("กรุณาอัปโหลดเอกสารขอจบการศึกษาก่อนยื่นคำร้อง");
+      setDialogOpen(true);
+      return;
+    }
+    if (!isInternshipUploaded) {
+      setDialogMessage("กรุณาอัปโหลดสลิปค่าออกฝึกก่อนยื่นคำร้อง");
+      setDialogOpen(true);
+      return;
+    }
+    if (!isAdvisorApproved) {
+      setDialogMessage("อาจารย์ที่ปรึกษายังไม่ได้อนุมัติ\nกรุณารออาจารย์ที่ปรึกษาตรวจสอบและอนุมัติก่อนยื่นคำร้อง");
+      setDialogOpen(true);
+      return;
+    }
     setConfirmSubmitDialogOpen(true);
   };
 
@@ -471,23 +499,36 @@ export default function StudentScreenUI() {
 
   const allTasksPassed = tasks.length > 0 && passedCount === tasks.length;
   const shouldHideSubmitAction = allTasksPassed || currentRequest?.status === "Completed";
+
   const isGeneralUploaded = tasks.find((t) => t.id === 6)?.fileUploaded;
-  const canSubmitForReview = (!currentRequest || ["Pending", "Rejected"].includes(currentRequest.status)) && isGeneralUploaded;
+  const isInternshipUploaded = tasks.find((t) => t.id === 7)?.fileUploaded;
+  const isAdvisorApproved = currentRequest?.steps?.grade_check?.status === "approved";
+
+  const canSubmitForReview =
+    (!currentRequest || ["Pending", "Rejected"].includes(currentRequest.status)) &&
+    isGeneralUploaded &&
+    isInternshipUploaded &&
+    isAdvisorApproved;
+
   const submitButtonLabel = currentRequest?.status === "In Progress"
     ? "ยื่นแล้ว (รอตรวจสอบ)"
     : "ยื่นใบคำร้อง";
 
   const requestHintText = !isGeneralUploaded
-    ? "กรุณาอัปโหลดเอกสารที่จำเป็นให้เรียบร้อยก่อนยื่นคำร้อง"
-    : !currentRequest
-      ? "ยังไม่มีคำร้องที่ใช้งานอยู่"
-      : currentRequest.status === "Pending"
-        ? "พร้อมยื่นคำร้องไปยังหน่วยงานตรวจสอบ"
-        : currentRequest.status === "In Progress"
-          ? "คำร้องถูกส่งแล้วและกำลังรอหน่วยงานตรวจสอบ"
-          : currentRequest.status === "Rejected"
-            ? "คำร้องถูกตีกลับ สามารถยื่นใหม่เฉพาะส่วนที่ไม่ผ่านได้ โดยส่วนที่ผ่านแล้วจะคงสถานะเดิม"
-            : "คำร้องเสร็จสมบูรณ์แล้ว ไม่ต้องดำเนินการเพิ่มเติม";
+    ? "กรุณาอัปโหลดเอกสารขอจบการศึกษาก่อน (รายการที่ 6)"
+    : !isInternshipUploaded
+      ? "กรุณาอัปโหลดสลิปค่าออกฝึกก่อน (รายการที่ 7)"
+      : !isAdvisorApproved
+        ? "รออาจารย์ที่ปรึกษาอนุมัติก่อนจึงจะยื่นคำร้องได้"
+        : !currentRequest
+          ? "ยังไม่มีคำร้องที่ใช้งานอยู่"
+          : currentRequest.status === "Pending"
+            ? "พร้อมยื่นคำร้องไปยังหน่วยงานตรวจสอบ"
+            : currentRequest.status === "In Progress"
+              ? "คำร้องถูกส่งแล้วและกำลังรอหน่วยงานตรวจสอบ"
+              : currentRequest.status === "Rejected"
+                ? "คำร้องถูกตีกลับ สามารถยื่นใหม่เฉพาะส่วนที่ไม่ผ่านได้ โดยส่วนที่ผ่านแล้วจะคงสถานะเดิม"
+                : "คำร้องเสร็จสมบูรณ์แล้ว ไม่ต้องดำเนินการเพิ่มเติม";
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', p: { xs: 2, md: 4 } }}>
@@ -563,56 +604,83 @@ export default function StudentScreenUI() {
 
         {/* History Detail Dialog */}
         <Dialog open={historyOpen} onClose={() => setHistoryOpen(false)} fullWidth maxWidth="sm">
-          {selectedHistory && (
-            <Box sx={{ p: { xs: 3, md: 5 }, display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <Typography variant="h6" align="center" fontWeight="bold" sx={{ color: 'text.primary', mb: 1 }}>
-               รายละเอียดประวัติคำร้อง
-              </Typography>
+          {selectedHistory && (() => {
+            const req = selectedHistory.originalRequest;
+            const rejectedSteps = Object.entries(req?.steps || {})
+              .filter(([, s]) => s?.status === "rejected")
+              .map(([key, s]) => ({ key, label: STEP_LABELS[key] || key, date: s.updatedAt, comment: s.comment }));
 
-              <Box sx={{ bgcolor: 'background.default', p: 3, borderRadius: 3, display: 'flex', flexDirection: 'column', gap: 2, border: '1px solid', borderColor: 'divider' }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Typography variant="body2" color="text.secondary">วันที่ยื่นคำร้อง</Typography>
-                  <Typography variant="body2" fontWeight="bold" color="text.primary">{selectedHistory.date}</Typography>
-                </Box>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Typography variant="body2" color="text.secondary">สถานะคำร้อง</Typography>
-                  <Chip
-                    label={statusConfig[selectedHistory.status]?.label || "รอดำเนินการ"}
-                    size="small"
-                    sx={{
-                      backgroundColor: statusConfig[selectedHistory.status]?.bg || statusConfig.waiting.bg,
-                      color: statusConfig[selectedHistory.status]?.text || statusConfig.waiting.text,
-                      fontWeight: 700,
-                      borderRadius: 1.5,
-                    }}
-                  />
-                </Box>
-                {selectedHistory.rejectedDate && (
+            return (
+              <Box sx={{ p: { xs: 3, md: 4 }, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+                <Typography variant="h6" align="center" fontWeight="bold" color="text.primary">
+                  รายละเอียดประวัติคำร้อง
+                </Typography>
+
+                {/* ข้อมูลพื้นฐาน */}
+                <Box sx={{ bgcolor: 'background.default', p: 2.5, borderRadius: 3, display: 'flex', flexDirection: 'column', gap: 1.5, border: '1px solid', borderColor: 'divider' }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Typography variant="body2" color="text.secondary">วันที่ปฏิเสธคำร้อง</Typography>
-                    <Typography variant="body2" fontWeight="bold" color="error.main">{selectedHistory.rejectedDate}</Typography>
+                    <Typography variant="body2" color="text.secondary">วันที่ยื่นคำร้อง</Typography>
+                    <Typography variant="body2" fontWeight="bold">{selectedHistory.date}</Typography>
                   </Box>
-                )}
-                {selectedHistory.remark && (
-                  <Box sx={{ borderTop: '1px solid', borderColor: 'divider', pt: 2, mt: 1 }}>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>เหตุผลการปฏิเสธ / ข้อเสนอแนะ</Typography>
-                    <Typography variant="body2" sx={{ p: 2, bgcolor: 'background.paper', borderRadius: 2, border: '1px solid', borderColor: 'divider', color: 'error.main', fontWeight: 600 }}>
-                      {selectedHistory.remark}
-                    </Typography>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="body2" color="text.secondary">ปีการศึกษา / ภาคเรียน</Typography>
+                    <Typography variant="body2" fontWeight="bold">{req?.academicYear} / {req?.semester}</Typography>
                   </Box>
-                )}
-              </Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="body2" color="text.secondary">สถานะคำร้อง</Typography>
+                    <Chip
+                      label={statusConfig[selectedHistory.status]?.label || "รอดำเนินการ"}
+                      size="small"
+                      sx={{
+                        backgroundColor: statusConfig[selectedHistory.status]?.bg || statusConfig.waiting.bg,
+                        color: statusConfig[selectedHistory.status]?.text || statusConfig.waiting.text,
+                        fontWeight: 700,
+                        borderRadius: 1.5,
+                      }}
+                    />
+                  </Box>
+                </Box>
 
-              <Button
-                fullWidth
-                onClick={() => setHistoryOpen(false)}
-                variant="contained"
-                sx={{ py: 1, fontWeight: 700, borderRadius: 2 }}
-              >
-                ปิดหน้าต่าง
-              </Button>
-            </Box>
-          )}
+                {/* รายการที่ถูกตีกลับ */}
+                {rejectedSteps.length > 0 && (
+                  <Box>
+                    <Typography variant="subtitle2" fontWeight="bold" color="error.main" sx={{ mb: 1.5 }}>
+                      หน่วยงานที่ตีกลับ ({rejectedSteps.length} รายการ)
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                      {rejectedSteps.map(({ key, label, date, comment }) => (
+                        <Box
+                          key={key}
+                          sx={{ border: '1px solid #fca5a5', borderRadius: 2.5, p: 2, bgcolor: '#fff7f7' }}
+                        >
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1, mb: comment ? 1 : 0 }}>
+                            <Typography variant="body2" fontWeight="700" color="#b91c1c">{label}</Typography>
+                            <Typography variant="caption" color="#9f1239" sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
+                              {date ? formatThaiDateTime(date) : "-"}
+                            </Typography>
+                          </Box>
+                          {comment && (
+                            <Typography variant="body2" color="#7f1d1d" sx={{ borderTop: '1px solid #fecaca', pt: 1, mt: 0.5 }}>
+                              หมายเหตุ: {comment}
+                            </Typography>
+                          )}
+                        </Box>
+                      ))}
+                    </Box>
+                  </Box>
+                )}
+
+                <Button
+                  fullWidth
+                  onClick={() => setHistoryOpen(false)}
+                  variant="contained"
+                  sx={{ py: 1.2, fontWeight: 700, borderRadius: 2 }}
+                >
+                  ปิดหน้าต่าง
+                </Button>
+              </Box>
+            );
+          })()}
         </Dialog>
 
         {/* Upload File Dialog */}
@@ -715,6 +783,23 @@ export default function StudentScreenUI() {
                 ? "ระบบจะส่งสเต็ปที่ปฏิเสธไปเพื่อเริ่มการตรวจสอบใหม่อีกครั้ง ส่วนที่ผ่านแล้วจะไม่ได้รับผลกระทบ"
                 : "คุณต้องการส่งคำร้องและไฟล์เอกสารขอจบการศึกษาให้เจ้าหน้าที่และแผนกต่าง ๆ ตรวจสอบใช่หรือไม่?"}
             </Typography>
+
+            {/* เช็คลิสต์เงื่อนไขก่อนส่ง */}
+            <Box sx={{ bgcolor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 2.5, p: 2, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+              <Typography variant="caption" fontWeight="bold" color="#166534" display="block" sx={{ mb: 0.5 }}>
+                เงื่อนไขที่ผ่านแล้ว:
+              </Typography>
+              <Typography variant="caption" display="block" sx={{ color: '#15803d' }}>
+                ✅ อัปโหลดเอกสารขอจบการศึกษาแล้ว
+              </Typography>
+              <Typography variant="caption" display="block" sx={{ color: '#15803d' }}>
+                ✅ อัปโหลดสลิปค่าออกฝึกแล้ว
+              </Typography>
+              <Typography variant="caption" display="block" sx={{ color: '#15803d' }}>
+                ✅ อาจารย์ที่ปรึกษาอนุมัติแล้ว
+              </Typography>
+            </Box>
+
             {currentRequest?.status === "Rejected" && rejectedStepLabels.length > 0 && (
               <Box sx={{ bgcolor: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 2.5, p: 2 }}>
                 <Typography variant="caption" fontWeight="bold" color="#c2410c" display="block" sx={{ mb: 0.5 }}>

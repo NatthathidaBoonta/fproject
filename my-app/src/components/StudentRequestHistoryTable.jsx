@@ -43,12 +43,7 @@ export default function StudentRequestHistoryTable({
             color="success"
             startIcon={<PictureAsPdfIcon />}
             onClick={() => onDownloadPdf(currentRequest)}
-            sx={{
-              bgcolor: '#16a34a',
-              '&:hover': { bgcolor: '#15803d' },
-              fontWeight: 700,
-              borderRadius: 2,
-            }}
+            sx={{ bgcolor: '#16a34a', '&:hover': { bgcolor: '#15803d' }, fontWeight: 700, borderRadius: 2 }}
           >
             ดาวน์โหลดใบรับรองสำเร็จ (PDF)
           </Button>
@@ -56,84 +51,70 @@ export default function StudentRequestHistoryTable({
       </Box>
 
       <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid #e2e8f0', borderRadius: 3, overflow: 'hidden', mb: 3 }}>
-        <Box sx={{ overflowX: 'auto' }}>
-          <Table size="small" sx={{ minWidth: 720 }}>
-            <TableHead>
-              <TableRow sx={{ backgroundColor: '#f8fafc' }}>
-                <TableCell sx={{ fontWeight: 700, color: '#475569', py: 1.5 }}>วันที่ยื่น</TableCell>
-                <TableCell sx={{ fontWeight: 700, color: '#475569', py: 1.5 }}>สถานะ</TableCell>
-                <TableCell sx={{ fontWeight: 700, color: '#475569', py: 1.5 }}>วันที่ตีกลับ</TableCell>
-                <TableCell sx={{ fontWeight: 700, color: '#475569', py: 1.5 }}>หมายเหตุ</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 700, color: '#475569', py: 1.5 }}>จัดการ</TableCell>
+        <Table size="small">
+          <TableHead>
+            <TableRow sx={{ backgroundColor: '#f8fafc' }}>
+              <TableCell sx={{ fontWeight: 700, color: '#475569', py: 1.5, width: '45%' }}>วันที่ยื่น</TableCell>
+              <TableCell sx={{ fontWeight: 700, color: '#475569', py: 1.5, width: '30%' }}>สถานะ</TableCell>
+              <TableCell align="right" sx={{ fontWeight: 700, color: '#475569', py: 1.5, width: '25%' }}>จัดการ</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {submissionHistory.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={3} align="center" sx={{ py: 4, color: '#64748b' }}>
+                  ยังไม่มีประวัติการยื่นคำร้อง
+                </TableCell>
               </TableRow>
-            </TableHead>
-            <TableBody>
-              {submissionHistory.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} align="center" sx={{ py: 4, color: '#64748b' }}>
-                    ยังไม่มีประวัติการยื่นคำร้อง
-                  </TableCell>
-                </TableRow>
-              ) : (
-                submissionHistory.map((history) => {
-                  const status = history.status || 'waiting';
-                  const config = statusConfig[status] || statusConfig.waiting;
-                  return (
-                    <TableRow key={history.id} hover sx={{ '&:last-child td': { border: 0 } }}>
-                      <TableCell sx={{ whiteSpace: 'nowrap', py: 1.5 }}>{history.date}</TableCell>
-                      <TableCell sx={{ py: 1.5 }}>
-                        <Chip
-                          label={config.label}
-                          size="small"
-                          sx={{
-                            backgroundColor: config.bg,
-                            color: config.text,
-                            fontWeight: 700,
-                            fontSize: '0.72rem',
-                            height: 22,
-                            borderRadius: 1.5,
-                          }}
-                        />
-                      </TableCell>
-                      <TableCell
+            ) : (
+              submissionHistory.map((history) => {
+                const status = history.status || 'waiting';
+                const config = statusConfig[status] || statusConfig.waiting;
+                return (
+                  <TableRow key={history.id} hover sx={{ '&:last-child td': { border: 0 } }}>
+                    <TableCell sx={{ whiteSpace: 'nowrap', py: 1.5, color: '#334155' }}>
+                      {history.date}
+                    </TableCell>
+                    <TableCell sx={{ py: 1.5 }}>
+                      <Chip
+                        label={config.label}
+                        size="small"
                         sx={{
-                          whiteSpace: 'nowrap',
-                          color: status === 'rejected' ? '#dc2626' : 'text.secondary',
-                          py: 1.5,
+                          backgroundColor: config.bg,
+                          color: config.text,
+                          fontWeight: 700,
+                          fontSize: '0.72rem',
+                          height: 22,
+                          borderRadius: 1.5,
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell align="right" sx={{ py: 1.5 }}>
+                      <Button
+                        size="small"
+                        onClick={() => onViewDetail(history)}
+                        sx={{
+                          color: '#064460',
+                          textTransform: 'none',
+                          fontSize: '0.8rem',
+                          bgcolor: '#eff6ff',
+                          '&:hover': { bgcolor: '#dbeafe' },
+                          borderRadius: 1.5,
+                          px: 2,
                         }}
                       >
-                        {history.rejectedDate || '-'}
-                      </TableCell>
-                      <TableCell sx={{ minWidth: 240, color: 'text.primary', py: 1.5 }}>
-                        {history.remark || '-'}
-                      </TableCell>
-                      <TableCell align="right" sx={{ py: 1.5 }}>
-                        <Button
-                          size="small"
-                          onClick={() => onViewDetail(history)}
-                          sx={{
-                            color: '#064460',
-                            textTransform: 'none',
-                            fontSize: '0.8rem',
-                            bgcolor: '#eff6ff',
-                            '&:hover': { bgcolor: '#dbeafe' },
-                            borderRadius: 1.5,
-                            px: 2,
-                          }}
-                        >
-                          ดูรายละเอียด
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
-        </Box>
+                        ดูรายละเอียด
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
       </TableContainer>
 
-      {/* Action Buttons */}
+      {/* Action Button */}
       {!shouldHideSubmitAction && (
         <Box>
           <Button

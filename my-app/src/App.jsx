@@ -23,7 +23,7 @@ import {
 import MenuIcon from '@mui/icons-material/Menu';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import { getUsers, getNotifications, markNotificationAsRead, markAllNotificationsAsRead } from "./services/api";
+import { getUsers, getNotifications, markNotificationAsRead, markAllNotificationsAsRead } from "./services/api.js";
 import { getAppTheme } from "./theme";
 
 // Pages
@@ -34,7 +34,7 @@ import AdvisorDashboard from "./pages/advisor/AdvisorDashboard";
 import AdvisorDetail from "./pages/advisor/AdvisorDetail";
 import OfficeDashboard from "./pages/office/OfficeDashboard";
 import OfficeDetail from "./pages/office/OfficeDetail";
-import OfficeEventh from "./pages/office/OfficeEventh";
+import OfficeEvent from "./pages/office/OfficeEvent.jsx";
 import OfficeRegistration from "./pages/office/OfficeRegistration";
 import OfficeLanguage from "./pages/office/OfficeLanguage";
 import OfficeInformation from "./pages/office/OfficeInformation";
@@ -42,7 +42,9 @@ import OfficeLibrary from "./pages/office/OfficeLibrary";
 import EditProfile from "./pages/Editprofile";
 
 import AdminDashboard from "./pages/admin/AdminDashboard";
-import Adminfrom from "./pages/admin/Adminfrom";
+import AdminForm from "./pages/admin/AdminForm.jsx";
+import ProtectedRoute from "./routes/ProtectedRoute.jsx";
+import RoleBasedRoute from "./routes/RoleBasedRoute.jsx";
 
 export default function App() {
   const location = useLocation();
@@ -55,13 +57,7 @@ export default function App() {
   const theme = useMemo(() => getAppTheme('light'), []);
 
   // --- 2. State สำหรับโปรไฟล์ส่วนตัว ---
-  const [myProfile, setMyProfile] = useState({
-    role: "Admin", // Default for development
-    name: "System Admin",
-    id: "admin",
-    email: "admin@sskru.ac.th",
-    password: "adminpassword"
-  });
+  const [myProfile, setMyProfile] = useState(null);
 
   // --- 3. State สำหรับการแจ้งเตือน ---
   const [notifications, setNotifications] = useState([]);
@@ -443,32 +439,82 @@ export default function App() {
         {/* ส่วนแสดงเนื้อหา (Content) */}
         <Box sx={{ p: isLoginPage ? 0 : 3 }}>
           <Routes>
+            <Route path="/" element={<Login setUser={setMyProfile} />} />
+
             <Route path="/admin" element={
-              <AdminDashboard users={users} setUsers={setUsers} onRefresh={fetchUsers} />
+              <RoleBasedRoute user={myProfile} allowedRoles={['Admin']}>
+                <AdminDashboard users={users} setUsers={setUsers} onRefresh={fetchUsers} />
+              </RoleBasedRoute>
             } />
             <Route path="/adminfrom" element={
-              <Adminfrom users={users} setUsers={setUsers} advisors={advisors} onRefresh={fetchUsers} />
+              <RoleBasedRoute user={myProfile} allowedRoles={['Admin']}>
+                <AdminForm users={users} setUsers={setUsers} advisors={advisors} onRefresh={fetchUsers} />
+              </RoleBasedRoute>
             } />
 
-            <Route path="/" element={<Login setUser={setMyProfile} />} />
-            <Route path="/student" element={<Dashboard />} />
+            <Route path="/student" element={
+              <RoleBasedRoute user={myProfile} allowedRoles={['Student', 'Admin']}>
+                <Dashboard />
+              </RoleBasedRoute>
+            } />
 
-            <Route path="/profile" element={<Profile user={myProfile} />} />
-
+            <Route path="/profile" element={
+              <ProtectedRoute user={myProfile}>
+                <Profile user={myProfile} />
+              </ProtectedRoute>
+            } />
             <Route path="/profile/edit" element={
-              <EditProfile user={myProfile} setUser={setMyProfile} />
+              <ProtectedRoute user={myProfile}>
+                <EditProfile user={myProfile} setUser={setMyProfile} />
+              </ProtectedRoute>
             } />
 
-            <Route path="/advisor" element={<AdvisorDashboard />} />
-            <Route path="/advisor/:id" element={<AdvisorDetail />} />
+            <Route path="/advisor" element={
+              <RoleBasedRoute user={myProfile} allowedRoles={['Advisor', 'Admin']}>
+                <AdvisorDashboard />
+              </RoleBasedRoute>
+            } />
+            <Route path="/advisor/:id" element={
+              <RoleBasedRoute user={myProfile} allowedRoles={['Advisor', 'Admin']}>
+                <AdvisorDetail />
+              </RoleBasedRoute>
+            } />
 
-            <Route path="/office" element={<OfficeDashboard />} />
-            <Route path="/office/eventh" element={<OfficeEventh />} />
-            <Route path="/office/registration" element={<OfficeRegistration />} />
-            <Route path="/office/language" element={<OfficeLanguage />} />
-            <Route path="/office/information" element={<OfficeInformation />} />
-            <Route path="/office/library" element={<OfficeLibrary />} />
-            <Route path="/office/:id" element={<OfficeDetail />} />
+            <Route path="/office" element={
+              <RoleBasedRoute user={myProfile} allowedRoles={['Office', 'Admin']}>
+                <OfficeDashboard />
+              </RoleBasedRoute>
+            } />
+            <Route path="/office/eventh" element={
+              <RoleBasedRoute user={myProfile} allowedRoles={['Office', 'Admin']}>
+                <OfficeEvent />
+              </RoleBasedRoute>
+            } />
+            <Route path="/office/registration" element={
+              <RoleBasedRoute user={myProfile} allowedRoles={['Office', 'Admin']}>
+                <OfficeRegistration />
+              </RoleBasedRoute>
+            } />
+            <Route path="/office/language" element={
+              <RoleBasedRoute user={myProfile} allowedRoles={['Office', 'Admin']}>
+                <OfficeLanguage />
+              </RoleBasedRoute>
+            } />
+            <Route path="/office/information" element={
+              <RoleBasedRoute user={myProfile} allowedRoles={['Office', 'Admin']}>
+                <OfficeInformation />
+              </RoleBasedRoute>
+            } />
+            <Route path="/office/library" element={
+              <RoleBasedRoute user={myProfile} allowedRoles={['Office', 'Admin']}>
+                <OfficeLibrary />
+              </RoleBasedRoute>
+            } />
+            <Route path="/office/:id" element={
+              <RoleBasedRoute user={myProfile} allowedRoles={['Office', 'Admin']}>
+                <OfficeDetail />
+              </RoleBasedRoute>
+            } />
           </Routes>
         </Box>
       </Box>
