@@ -37,7 +37,24 @@ app.use(morgan('dev'));
 app.use('/uploads', express.static(uploadsDir));
 
 // --- Routes ---
-app.get('/api/health', (_req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
+app.get('/api/health', async (_req, res) => {
+    const result = {
+        status: 'ok',
+        timestamp: new Date().toISOString(),
+        api: 'ok',
+        database: 'unknown',
+    };
+    try {
+        await sequelize.authenticate();
+        result.database = 'ok';
+    } catch (err) {
+        result.status = 'degraded';
+        result.database = 'error';
+        result.databaseError = err.message;
+    }
+    const httpStatus = result.status === 'ok' ? 200 : 503;
+    res.status(httpStatus).json(result);
+});
 app.get('/api/master-data', (_req, res) => res.json({ faculties: facultyData, departments: officeDepts }));
 app.use('/api', authRoutes);
 app.use('/api/users', userRoutes);
