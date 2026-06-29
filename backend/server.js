@@ -37,6 +37,7 @@ app.use(morgan('dev'));
 app.use('/uploads', express.static(uploadsDir));
 
 // --- Routes ---
+app.get('/api/health', (_req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 app.get('/api/master-data', (_req, res) => res.json({ faculties: facultyData, departments: officeDepts }));
 app.use('/api', authRoutes);
 app.use('/api/users', userRoutes);
